@@ -14,8 +14,7 @@ def show():
         return
 
     df_all = pd.DataFrame(items)
-    df_all["Date"] = pd.to_datetime(df_all["game_date"])
-    df_all = df_all[["user_id","raw_game","game_number","score","metric","Date","timestamp"]]
+    df_all = df_all[["user_id","raw_game","game_number","score","metric","timestamp"]]
     df_all = df_all.rename(columns={
         "user_id":"Player",
         "raw_game":"Game",
@@ -25,6 +24,7 @@ def show():
         "timestamp":"Timestamp"
     })
 
+    # --- Filters ---
     col1, col2 = st.columns([2,2])
     with col1:
         selected_game = st.selectbox("Filter by Game", options=["All"] + GAMES, index=0)
@@ -39,5 +39,5 @@ def show():
         st.warning("No players selected. Showing empty table.")
         df_all = pd.DataFrame(columns=df_all.columns)
 
-    df_all = df_all.sort_values(by=["Game", "Game Number", "Date"])
+    df_all = df_all.sort_values(by=["Game", "Game Number"])
     st.dataframe(df_all, use_container_width=True)
