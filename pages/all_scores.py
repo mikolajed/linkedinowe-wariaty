@@ -5,7 +5,7 @@ from constants import PLAYERS, GAMES
 
 def show():
     AWS_CFG = st.secrets.get("aws", {})
-    table = aws.get_ddb_table(AWS_CFG)
+    table = aws.get_ddb_table(AWS_CFG, table_name="game_scores")  # Use game_scores table
     st.header("All Scores")
 
     items = data.fetch_all(table)
@@ -14,18 +14,22 @@ def show():
         return
 
     df_all = pd.DataFrame(items)
-    df_all = df_all[["user_id","raw_game","game_number","score","metric","timestamp"]]
+    if df_all.empty:
+        st.info("No scores yet.")
+        return
+
+    df_all = df_all[["user_id", "raw_game", "game_number", "score", "metric", "timestamp"]]
     df_all = df_all.rename(columns={
-        "user_id":"Player",
-        "raw_game":"Game",
-        "game_number":"Game Number",
-        "score":"Score",
-        "metric":"Metric",
-        "timestamp":"Timestamp"
+        "user_id": "Player",
+        "raw_game": "Game",
+        "game_number": "Game Number",
+        "score": "Score",
+        "metric": "Metric",
+        "timestamp": "Timestamp"
     })
 
     # --- Filters ---
-    col1, col2 = st.columns([2,2])
+    col1, col2 = st.columns([2, 2])
     with col1:
         selected_game = st.selectbox("Filter by Game", options=["All"] + GAMES, index=0)
     with col2:

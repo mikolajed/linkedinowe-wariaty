@@ -4,7 +4,7 @@ from constants import PLAYERS, GAMES
 
 def show():
     AWS_CFG = st.secrets.get("aws", {})
-    table = aws.get_ddb_table(AWS_CFG)
+    table = aws.get_ddb_table(AWS_CFG, table_name="game_scores")
 
     st.header("Debug / Test Data")
 
@@ -17,7 +17,11 @@ def show():
     days = st.slider("Number of entries", 1, 30, 7)
 
     if st.button("Add Test Data"):
-        data.generate_test_data(table, test_player, game=test_game, days=days)
-        st.success(f"Added {days} entries for {test_player} ({test_game})!")
+        added = data.generate_test_data(table, test_player, game=test_game, days=days)
+        st.success(f"Added {len(added)} entries for {test_player} ({test_game})!")
+        st.subheader("Last entries:")
+        st.dataframe(added, use_container_width=True)
 
-    st.checkbox("Debug Mode", value=st.session_state.get("debug_mode", False), key="debug_mode")
+    # Debug Mode toggle
+    debug_mode = st.checkbox("Debug Mode", value=st.session_state.get("debug_mode", False))
+    st.session_state.debug_mode = debug_mode
