@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 import random
-import pandas as pd
 
 def fetch_all(table):
     """Fetch all items from DynamoDB table"""
@@ -10,9 +9,7 @@ def fetch_all(table):
         return []
 
 def save_score(table, user_id: str, parsed: dict):
-    """
-    Save processed game score into `game_scores` table
-    """
+    """Save processed game score into `game_scores` table"""
     from constants import GAMES
 
     if parsed["raw_game"] not in GAMES:
@@ -34,11 +31,8 @@ def save_score(table, user_id: str, parsed: dict):
     table.put_item(Item=item)
     return item
 
-
 def save_raw_post(table, user_id: str, raw_post: str, game: str = None, game_number: int = None):
-    """
-    Save raw LinkedIn post into `raw_game_posts` table
-    """
+    """Save raw LinkedIn post into `raw_game_posts` table"""
     timestamp = datetime.utcnow().isoformat()
     item = {
         "user_id": user_id,
@@ -50,41 +44,47 @@ def save_raw_post(table, user_id: str, raw_post: str, game: str = None, game_num
     table.put_item(Item=item)
     return item
 
-
-def generate_test_data(table, user: str, game: str = "Pinpoint", days: int = 7):
+def generate_test_data(table, user: str, game: str = "Pinpoint", start_day: int = 1, end_day: int = 7, extra_players: list = None):
     """
-    Generate test data for `game_scores` table
+    Generate test data for `game_scores` table.
+    start_day / end_day define the game_number range (inclusive).
+    extra_players: list of players to include in addition to `user`.
     """
     today = datetime.utcnow().date()
-    for i in range(days):
-        date = today - timedelta(days=i)
-        timestamp = (datetime.utcnow() - timedelta(days=i)).replace(hour=12, minute=0, second=0).isoformat()
+    players = [user]
+    if extra_players:
+        players.extend(extra_players)
 
-        # Random metric generation
-        if game in ["Pinpoint", "Crossclimb"]:
-            score = random.randint(3, 10)
-        elif game in ["Queens", "Mini Sudoku"]:
-            score = random.randint(60, 600)
-        elif game in ["Tango", "Zip"]:
-            score = random.randint(10, 100)
-        else:
-            score = random.randint(1, 20)
+    for player in players:
+        for i in range(start_day, end_day + 1):
+            date = today - timedelta(days=i)
+            timestamp = (datetime.utcnow() - timedelta(days=i)).replace(hour=12, minute=0, second=0).isoformat()
 
-        secondary = None
-        if game == "Zip":
-            secondary = random.randint(0, 20)
-        elif game == "Pinpoint":
-            secondary = random.randint(70, 100)  # accuracy %
+            # Random metric generation
+            if game in ["Pinpoint", "Crossclimb"]:
+                score = random.randint(3, 10)
+            elif game in ["Queens", "Mini Sudoku"]:
+                score = random.randint(60, 600)
+            elif game in ["Tango", "Zip"]:
+                score = random.randint(10, 100)
+            else:
+                score = random.randint(1, 20)
 
-        item = {
-            "user_id": user,
-            "timestamp": timestamp,
-            "raw_game": game,
-            "game_number": i + 1,
-            "score": score,
-            "metric": "seconds" if game not in ["Pinpoint"] else "guesses",
-            "secondary_metric": secondary,
-            "game_date": date.isoformat()
-        }
-        table.put_item(Item=item)
+            secondary = None
+            if game == "Zip":
+                secondary = random.randint(0, 20)
+            elif game == "Pinpoint":
+                secondary = random.randint(70, 100)  # accuracy %
+
+            item = {
+                "user_id": player,
+                "timestamp": timestamp,
+                "raw_game": game,
+                "game_number": i,
+                "score": score,
+                "metric": "seconds" if game not in ["Pinpoint"] else "guesses",
+                "secondary_metric": secondary,
+                "game_date": date.isoformat()
+            }
+            table.put_item(Item=item)
     return True

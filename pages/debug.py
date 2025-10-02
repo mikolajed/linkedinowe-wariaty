@@ -19,32 +19,30 @@ def show():
     with col1:
         test_player = st.selectbox("Select Player", PLAYERS, key="test_player")
     with col2:
-        start_idx, end_idx = st.select_slider(
-            "Select Game Range",
-            options=list(range(len(GAMES))),
-            value=(0, len(GAMES) - 1),
-            format_func=lambda i: GAMES[i]
-        )
+        test_game = st.selectbox("Select Game", GAMES, key="test_game")
 
-    days = st.slider("Number of entries to generate", 1, 30, 7)
+    entry_range = st.select_slider(
+        "Select entry range to generate",
+        options=list(range(1, 367)),  # 1 to 366
+        value=(1, 7)  # default from 1 to 7
+    )
+    start_entry, end_entry = entry_range
 
     if st.button("Add Test Data"):
         players_to_use = PLAYERS.copy()
         if not include_pysiek and "Pysiek" in players_to_use:
             players_to_use.remove("Pysiek")
 
-        selected_games = GAMES[start_idx:end_idx + 1]
+        data.generate_test_data(
+            table,
+            test_player,
+            game=test_game,
+            start_day=start_entry,
+            end_day=end_entry,
+            extra_players=players_to_use
+        )
 
-        for game in selected_games:
-            data.generate_test_data(
-                table,
-                test_player,
-                game=game,
-                days=days,
-                extra_players=players_to_use
-            )
-
-        st.success(f"Added {days} entries for {test_player} for games: {', '.join(selected_games)}")
+        st.success(f"Added entries {start_entry} → {end_entry} for {test_player} for game: {test_game}")
 
         if debug_mode:
             st.info(f"Debug Info: Players included = {', '.join(players_to_use)}")
