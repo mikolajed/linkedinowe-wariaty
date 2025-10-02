@@ -40,12 +40,12 @@ def get_ddb_table():
 
 table = get_ddb_table()
 
-# Hardcoded Players and Games
+# Players, Games, Colors
 PLAYERS = ["Mikuś", "Maciuś", "Patryk"]
 GAMES = ["Pinpoint", "Queens", "Crossclimb", "Tango"]
 COLORS = {"Mikuś": "#00ff88", "Maciuś": "#0077ff", "Patryk": "#cc00ff"}
 
-# Parsing Logic
+# Parse LinkedIn post
 def parse_post(text: str):
     text = text.strip()
     m = re.search(r"Pinpoint #\d+ \|\s*(\d+)\s*guesses", text, re.IGNORECASE)
@@ -58,9 +58,9 @@ def parse_post(text: str):
     if m: return {"game": "Crossclimb", "score": int(m.group(1)), "metric": "clues (lower better)"}
     m = re.search(r"Tango #\d+ \|\s*(\d+)\s*points", text, re.IGNORECASE)
     if m: return {"game": "Tango", "score": int(m.group(1)), "metric": "points (higher better)"}
-    raise ValueError("Could not detect a supported game pattern. Supported games: " + ", ".join(GAMES))
+    raise ValueError("Could not detect a supported game pattern.")
 
-# Save to DynamoDB
+# Save score
 def save_score(user: str, parsed: dict):
     item = {
         "user_id": user,
@@ -90,7 +90,7 @@ def generate_test_data(user: str, game: str = "Pinpoint"):
         table.put_item(Item=item)
     return True
 
-# Fetch all
+# Fetch all scores
 def fetch_all():
     try:
         return table.scan().get("Items", [])
@@ -146,21 +146,19 @@ def plot_chartjs(df: pd.DataFrame, game: str, players: list):
     """
     st.components.v1.html(html_code, height=450)
 
-# UI
+# --- Streamlit UI ---
 st.set_page_config(page_title="LinkedInowe Wariaty", page_icon="🎮")
 st.title("🎮 LinkedInowe Wariaty – Game Score Tracker")
-st.markdown("Track scores for Mikuś, Maciuś, and Patryk across Pinpoint, Queens, Crossclimb, and more!")
+st.markdown("Track scores for Mikuś, Maciuś, and Patryk across Pinpoint, Queens, Crossclimb, and Tango!")
 
 # Session state
-if "progress_game" not in st.session_state:
-    st.session_state.progress_game = "Pinpoint"
-if "progress_players" not in st.session_state:
-    st.session_state.progress_players = PLAYERS
-if "debug_mode" not in st.session_state:
-    st.session_state.debug_mode = False
+if "progress_game" not in st.session_state: st.session_state.progress_game = "Pinpoint"
+if "progress_players" not in st.session_state: st.session_state.progress_players = PLAYERS
+if "debug_mode" not in st.session_state: st.session_state.debug_mode = False
 
 tab1, tab2, tab3, tab4 = st.tabs(["📝 Submit Score", "📋 All Scores", "📈 Progress", "⚙️ Debug"])
 
+# --- Submit Score ---
 with tab1:
     st.header("Submit a New Score")
     user_id = st.selectbox("Select Player", PLAYERS, key="submit_player")
@@ -177,6 +175,7 @@ with tab1:
             except ValueError as e:
                 st.error(str(e))
 
+# --- All Scores ---
 with tab2:
     st.header("All Scores")
     items = fetch_all()
@@ -184,7 +183,7 @@ with tab2:
     if not df_all.empty:
         df_all = df_all.copy()
         df_all["Date"] = df_all["game_date"].apply(lambda x: x.split("_")[1])
-        df_all = df_all[["user_id","raw_game","score","metric","Date","timestamp"]]  # select only needed columns
+        df_all = df_all[["user_id","raw_game","score","metric","Date","timestamp"]]
         df_all = df_all.rename(columns={
             "user_id":"Player",
             "raw_game":"Game",
@@ -196,6 +195,7 @@ with tab2:
     else:
         st.info("No scores yet.")
 
+# --- Progress Tab ---
 with tab3:
     st.header("Game Progress")
     col1, col2, col3 = st.columns([2,2,2])
@@ -204,7 +204,7 @@ with tab3:
     with col2:
         progress_players = st.multiselect("Select Players", PLAYERS, default=st.session_state.progress_players, key="progress_players")
     with col3:
-        date_filter = st.selectbox("Date Range", ["Last 7 days", "Last 30 days", "All"], index=0)
+        date_filter = st.selectbox("Date Range", ["Last 7 days","Last 30 days","All"], index=0)
 
     all_items = fetch_all()
     df_prog = pd.DataFrame(all_items)
@@ -224,6 +224,7 @@ with tab3:
     else:
         plot_chartjs(df_prog, progress_game, progress_players)
 
+# --- Debug Tab ---
 with tab4:
     st.header("Debug / Test Data")
     test_player = st.selectbox("Select Player for Test Data", PLAYERS, key="test_player")
