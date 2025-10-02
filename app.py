@@ -132,19 +132,18 @@ def plot_game(game: str, selected_users: list, date_filter: str):
 
     fig = go.Figure()
 
-    # Add final traces (so data is always visible)
+    # Step 1: Markers-only traces (all points visible instantly)
     for user in selected_users:
         user_df = df[df["user_id"] == user]
         fig.add_trace(go.Scatter(
             x=user_df["Date"],
             y=user_df["Score"],
-            mode="lines+markers",
+            mode="markers",
             name=user,
-            line=dict(color=COLORS.get(user, "#ffffff"), width=4, shape="spline"),
             marker=dict(size=8, color=COLORS.get(user, "#ffffff"))
         ))
 
-    # Animation frames
+    # Step 2: Animate line traces progressively
     frames = []
     max_steps = len(df)
     for step in range(1, max_steps + 1):
@@ -154,13 +153,15 @@ def plot_game(game: str, selected_users: list, date_filter: str):
             frame_data.append(go.Scatter(
                 x=user_df["Date"],
                 y=user_df["Score"],
-                mode="lines+markers",
-                name=user,
+                mode="lines",
                 line=dict(color=COLORS.get(user, "#ffffff"), width=4, shape="spline"),
-                marker=dict(size=8, color=COLORS.get(user, "#ffffff"))
+                showlegend=False  # hide legends for line frames
             ))
         frames.append(go.Frame(data=frame_data, name=str(step)))
 
+    fig.frames = frames
+
+    # Layout with autoplay button
     fig.update_layout(
         title=f"{game} Progress",
         xaxis=dict(title="Date", showgrid=True, linecolor="white"),
@@ -171,7 +172,6 @@ def plot_game(game: str, selected_users: list, date_filter: str):
         legend=dict(title="Players"),
         margin=dict(l=40, r=20, t=60, b=40),
         hovermode="x unified",
-        showlegend=True,
         updatemenus=[{
             "type": "buttons",
             "showactive": False,
@@ -184,7 +184,6 @@ def plot_game(game: str, selected_users: list, date_filter: str):
         }]
     )
 
-    fig.frames = frames
     config = {"displayModeBar": False}
     return fig, df[["user_id", "Date", "Score"]], debug_info, config
 
