@@ -31,7 +31,11 @@ def get_ddb_table():
                 def __init__(self): self.data = []
                 def put_item(self, Item): self.data.append(Item)
                 def scan(self): return {"Items": self.data}
-                def delete_item(self, Key): self.data = [i for i in self.data if not (i.get('user_id') == Key['user_id'] and i.get('game_date') == Key['game_date'])]
+                def delete_item(self, Key): 
+                    self.data = [i for i in self.data if not (
+                        i.get('user_id') == Key['user_id'] 
+                        and i.get('game_date') == Key['game_date']
+                    )]
             return MockTable()
     except Exception as e:
         st.error(f"DynamoDB error: {str(e)}. Check credentials and table 'game-scores'.")
@@ -76,7 +80,7 @@ def save_score(user: str, parsed: dict):
     table.put_item(Item=item)
     return item
 
-# Generate test data for past 4 days
+# Generate test data
 def generate_test_data(user: str, game: str = "Pinpoint"):
     today = datetime.utcnow().date()
     for i in range(4):
@@ -105,33 +109,29 @@ def fetch_all():
         st.error(f"Failed to fetch scores: {str(e)}. Check DynamoDB permissions.")
         return []
 
-# Plot progress for a game with multiple users
+# Plot progress
 def plot_game(game: str, selected_users: list):
     items = [i for i in fetch_all() if i["raw_game"].lower() == game.lower() and i["user_id"] in selected_users]
     if not items:
-        return None, []
-    
-    # Group by user and date
+        return None, [], {}
+
     df = pd.DataFrame(items)
     df["Date"] = df["game_date"].apply(lambda x: x.split("_")[1])
-    df["Score"] = df["score"].apply(int)  # Convert Decimal to int
+    df["Score"] = df["score"].apply(int)
     df = df[["user_id", "Date", "Score", "timestamp"]].sort_values("timestamp")
-    
-    # Debug: Log data
+
     debug_info = {user: df[df["user_id"] == user][["Date", "Score"]].to_dict() for user in selected_users}
-    
-    # Plotly graph with spline interpolation and markers
+
     fig = px.line(
         df,
         x="Date",
         y="Score",
         color="user_id",
         title=f"{game} Progress for Selected Players",
-        line_shape="spline",  # Spline interpolation
-        markers=True,  # Show data points
+        line_shape="spline",
+        markers=True,
         template="plotly_dark"
     )
-    # Custom colors for users
     for user in selected_users:
         if user in df["user_id"].values:
             fig.update_traces(
@@ -159,7 +159,7 @@ st.set_page_config(page_title="LinkedInowe Wariaty", page_icon="🎮")
 st.title("🎮 LinkedInowe Wariaty – Game Score Tracker")
 st.markdown("Track scores for Mikuś, Maciuś, and Patryk across Pinpoint, Queens, Crossclimb, and more!")
 
-# Initialize session state
+# Init state
 if "progress_game" not in st.session_state:
     st.session_state.progress_game = "Pinpoint"
 if "progress_players" not in st.session_state:
@@ -171,7 +171,6 @@ if "debug_mode" not in st.session_state:
 tab1, tab2, tab3 = st.tabs(["📝 Submit Score", "📋 All Scores", "📈 Progress"])
 
 with tab1:
-    # Score submission
     st.header("Submit a New Score")
     user_id = st.selectbox("Select Player", PLAYERS, help="Choose who you are.", key="submit_player")
     post = st.text_area("Paste the LinkedIn share text here", height=150, placeholder="E.g., Pinpoint #135 | 3 guesses")
@@ -187,53 +186,55 @@ with tab1:
             except ValueError as e:
                 st.error(str(e))
 
-    # Test data button
-    st.subheader("Generate Test Data")
-    test_player = st.selectbox("Select Player for Test Data", PLAYERS, key="test_player")
-    if st.button("Add Test Data (Pinpoint, Past 4 Days)"):
-        success = generate_test_data(test_player, "Pinpoint")
-        if success:
-            st.success(f"Added 4 test Pinpoint scores for {test_player}!")
-        else:
-            st.error("Failed to add test data. Check DynamoDB permissions.")
+    # Debug-only tools
+    if st.session_state.debug_mode:
+        st.subheader("🔧 Debug Tools")
 
-    # Test buttons
-    st.subheader("DynamoDB Test")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        if st.button("Test Write"):
-            test_item = {
-                "user_id": "Mikuś",
-                "game_date": f"Pinpoint_{datetime.utcnow().date().isoformat()}",
-                "score": 3,
-                "metric": "guesses (lower better)",
-                "timestamp": datetime.utcnow().isoformat(),
-                "raw_game": "Pinpoint",
-            }
-            try:
-                table.put_item(Item=test_item)
-                st.success("Test write successful!")
-            except Exception as e:
-                st.error(f"Test write failed: {str(e)}")
-    with col2:
-        if st.button("Test Read"):
-            items = fetch_all()
-            if items:
-                st.success("Test read successful!")
-                st.json(items)
+        # Test data
+        test_player = st.selectbox("Select Player for Test Data", PLAYERS, key="test_player")
+        if st.button("Add Test Data (Pinpoint, Past 4 Days)"):
+            success = generate_test_data(test_player, "Pinpoint")
+            if success:
+                st.success(f"Added 4 test Pinpoint scores for {test_player}!")
             else:
-                st.info("Test read: No items yet.")
-    with col3:
-        if st.button("Test Delete"):
-            try:
-                key = {'user_id': 'Mikuś', 'game_date': f"Pinpoint_{datetime.utcnow().date().isoformat()}"}
-                table.delete_item(Key=key)
-                st.success("Test delete successful!")
-            except Exception as e:
-                st.error(f"Test delete failed: {str(e)}")
+                st.error("Failed to add test data. Check DynamoDB permissions.")
+
+        # DynamoDB test buttons
+        st.subheader("DynamoDB Test")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("Test Write"):
+                test_item = {
+                    "user_id": "Mikuś",
+                    "game_date": f"Pinpoint_{datetime.utcnow().date().isoformat()}",
+                    "score": 3,
+                    "metric": "guesses (lower better)",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "raw_game": "Pinpoint",
+                }
+                try:
+                    table.put_item(Item=test_item)
+                    st.success("Test write successful!")
+                except Exception as e:
+                    st.error(f"Test write failed: {str(e)}")
+        with col2:
+            if st.button("Test Read"):
+                items = fetch_all()
+                if items:
+                    st.success("Test read successful!")
+                    st.json(items)
+                else:
+                    st.info("Test read: No items yet.")
+        with col3:
+            if st.button("Test Delete"):
+                try:
+                    key = {'user_id': 'Mikuś', 'game_date': f"Pinpoint_{datetime.utcnow().date().isoformat()}"}
+                    table.delete_item(Key=key)
+                    st.success("Test delete successful!")
+                except Exception as e:
+                    st.error(f"Test delete failed: {str(e)}")
 
 with tab2:
-    # All entries with filtering
     st.header("All Scores")
     with st.form("filter_form"):
         col1, col2 = st.columns(2)
@@ -259,7 +260,6 @@ with tab2:
         st.info("No scores match the filters.")
 
 with tab3:
-    # Progress tab
     st.header("Game Progress")
     col1, col2, col3 = st.columns([2, 2, 1])
     with col1:
@@ -297,4 +297,4 @@ with tab3:
                 st.dataframe(df, use_container_width=True)
             st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info(f"No scores for {progress_game} for selected players. Use 'Add Test Data' in Submit Score tab to add scores.")
+            st.info(f"No scores for {progress_game} for selected players. Use Debug Tools → Add Test Data to generate scores.")
