@@ -86,7 +86,7 @@ def generate_test_data(user: str, game: str = "Pinpoint"):
             "game_date": f"{game}_{date.isoformat()}",
             "score": score,
             "metric": "guesses (lower better)",
-            "timestamp": datetime.utcnow().replace(hour=12, minute=0, second=0, microsecond=0).isoformat(),
+            "timestamp": (datetime.utcnow() - timedelta(days=i)).replace(hour=12, minute=0, second=0, microsecond=0).isoformat(),
             "raw_game": game,
         }
         try:
@@ -107,11 +107,12 @@ def fetch_all():
 # Plot progress
 def plot_user(game: str, user: str):
     items = [i for i in fetch_all() if i["raw_game"].lower() == game.lower() and i["user_id"] == user]
-    if len(items) < 1:
-        return None
+    if not items:
+        return None, []
     items.sort(key=lambda x: x["timestamp"])
     dates = [i["game_date"].split("_")[1] for i in items]
     scores = [i["score"] for i in items]
+    df = pd.DataFrame({"Date": dates, "Score": scores, "Timestamp": [i["timestamp"] for i in items]})
     # Chart.js HTML
     chart_id = f"chart_{user}_{game}".replace(" ", "_")
     html = f"""
@@ -169,7 +170,7 @@ def plot_user(game: str, user: str):
     }});
     </script>
     """
-    return html
+    return html, df
 
 # UI
 st.set_page_config(page_title="LinkedInowe Wariaty", page_icon="🎮")
@@ -276,8 +277,10 @@ with tab3:
     with col2:
         progress_game = st.selectbox("Select Game", GAMES, key="progress_game")
     if st.button("Show Progress", key="show_progress"):
-        html = plot_user(progress_game, progress_player)
+        html, df = plot_user(progress_game, progress_player)
         if html:
+            st.write(f"**Debug**: Found {len(df)} scores for {progress_player} in {progress_game}")
+            st.dataframe(df[["Date", "Score"]], use_container_width=True)
             components.html(html, height=450)
         else:
-            st.info(f"No scores for {progress_player} in {progress_game}. Submit scores to see progress!")
+            st.info(f"No scores for {progress_player} in {progress_game}. Use 'Add Test Data' in Submit Score tab to add scores.")
