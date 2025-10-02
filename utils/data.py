@@ -20,17 +20,28 @@ def save_score(table, user: str, parsed: dict):
     table.put_item(Item=item)
     return item
 
-def generate_test_data(table, user: str, game: str = "Pinpoint"):
+def generate_test_data(table, user: str, game: str = "Pinpoint", days: int = 7):
     today = datetime.utcnow().date()
-    for i in range(4):
+    for i in range(days):
         date = today - timedelta(days=i)
-        score = random.randint(3, 6)
+
+        # Different score types depending on the game
+        if game in ["Pinpoint", "Crossclimb"]:
+            score = random.randint(3, 10)  # guesses or clues
+        elif game in ["Queens", "Mini Sudoku"]:
+            score = random.randint(60, 600)  # seconds
+        elif game in ["Tango", "Zip"]:
+            score = random.randint(10, 100)  # points
+        else:
+            score = random.randint(1, 20)  # fallback
+
         item = {
             "user_id": user,
             "game_date": f"{game}_{date.isoformat()}",
             "score": score,
-            "metric": "guesses (lower better)",
+            "metric": "points/guesses/seconds",
             "timestamp": (datetime.utcnow() - timedelta(days=i)).replace(hour=12, minute=0, second=0).isoformat(),
             "raw_game": game,
         }
         table.put_item(Item=item)
+    return True
