@@ -3,6 +3,9 @@ import boto3
 import re
 from datetime import datetime
 import pandas as pd
+import matplotlib.pyplot as plt
+from io import BytesIO
+import base64
 import os
 
 # Config/Secrets
@@ -81,83 +84,124 @@ def fetch_all():
         st.error(f"Failed to fetch scores: {str(e)}. Check DynamoDB permissions.")
         return []
 
+# Plot progress
+def plot_user(game: str, user: str):
+    items = [i for i in fetch_all() if i["raw_game"].lower() == game.lower() and i["user_id"] == user]
+    if len(items) < 1:
+        return None
+    items.sort(key=lambda x: x["timestamp"])
+    dates = [i["game_date"].split("_")[1] for i in items]
+    scores = [i["score"] for i in items]
+    fig, ax = plt.subplots(figsize=(8,4))
+    ax.plot(dates, scores, marker="o", linestyle="-", color="b")
+    ax.set_title(f"{user}'s {game} Progress")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Score")
+    ax.grid(True)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    buf = BytesIO()
+    fig.savefig(buf, format="png")
+    buf.seek(0)
+    return base64.b64encode(buf.read()).decode()
+
 # UI
 st.set_page_config(page_title="LinkedInowe Wariaty", page_icon="🎮")
 st.title("🎮 LinkedInowe Wariaty – Game Score Tracker")
 st.markdown("Track scores for Mikuś, Maciuś, and Patryk across Pinpoint, Queens, Crossclimb, and more!")
 
-# Test buttons
-st.subheader("🔧 DynamoDB Test")
-col1, col2, col3 = st.columns(3)
-with col1:
-    if st.button("Test Write"):
-        test_item = {
-            "user_id": "Mikuś",
-            "game_date": f"Pinpoint_{datetime.utcnow().date().isoformat()}",
-            "score": 3,
-            "metric": "guesses (lower better)",
-            "timestamp": datetime.utcnow().isoformat(),
-            "raw_game": "Pinpoint",
-        }
-        try:
-            table.put_item(Item=test_item)
-            st.success("Test write successful!")
-        except Exception as e:
-            st.error(f"Test write failed: {str(e)}")
-with col2:
-    if st.button("Test Read"):
-        items = fetch_all()
-        if items:
-            st.success("Test read successful!")
-            st.json(items)
+# Tabs
+tab1, tab2, tab3 = st.tabs(["📝 Submit Score", "📋 All Scores", "📈 Progress"])
+
+with tab1:
+    # Score submission
+    st.header("Submit a New Score")
+    user_id = st.selectbox("Select Player", PLAYERS, help="Choose who you are.", key="submit_player")
+    post = st.text_area("Paste the LinkedIn share text here", height=150, placeholder="E.g., Pinpoint #135 | 3 guesses")
+    if st.button("Save Score", key="save_score"):
+        if not post.strip():
+            st.error("Please paste a valid game post!")
         else:
-            st.info("Test read: No items yet.")
-with col3:
-    if st.button("Test Delete"):
-        try:
-            key = {'user_id': 'Mikuś', 'game_date': f"Pinpoint_{datetime.utcnow().date().isoformat()}"}
-            table.delete_item(Key=key)
-            st.success("Test delete successful!")
-        except Exception as e:
-            st.error(f"Test delete failed: {str(e)}")
+            try:
+                parsed = parse_post(post)
+                saved = save_score(user_id, parsed)
+                st.success(f"Saved **{parsed['game']}** – score {parsed['score']} {parsed['metric']}")
+                st.json(saved)
+            except ValueError as e:
+                st.error(str(e))
 
-# Score submission
-st.header("📝 Submit a New Score")
-user_id = st.selectbox("Select Player", PLAYERS, help="Choose who you are.")
-post = st.text_area("Paste the LinkedIn share text here", height=150, placeholder="E.g., Pinpoint #135 | 3 guesses")
-if st.button("Save Score", key="save_score"):
-    if not post.strip():
-        st.error("Please paste a valid game post!")
+    # Test buttons
+    st.subheader("DynamoDB Test")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.button("Test Write"):
+            test_item = {
+                "user_id": "Mikuś",
+                "game_date": f"Pinpoint_{datetime.utcnow().date().isoformat()}",
+                "score": 3,
+                "metric": "guesses (lower better)",
+                "timestamp": datetime.utcnow().isoformat(),
+                "raw_game": "Pinpoint",
+            }
+            try:
+                table.put_item(Item=test_item)
+                st.success("Test write successful!")
+            except Exception as e:
+                st.error(f"Test write failed: {str(e)}")
+    with col2:
+        if st.button("Test Read"):
+            items = fetch_all()
+            if items:
+                st.success("Test read successful!")
+                st.json(items)
+            else:
+                st.info("Test read: No items yet.")
+    with col3:
+        if st.button("Test Delete"):
+            try:
+                key = {'user_id': 'Mikuś', 'game_date': f"Pinpoint_{datetime.utcnow().date().isoformat()}"}
+                table.delete_item(Key=key)
+                st.success("Test delete successful!")
+            except Exception as e:
+                st.error(f"Test delete failed: {str(e)}")
+
+with tab2:
+    # All entries with filtering
+    st.header("All Scores")
+    with st.form("filter_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            filter_player = st.selectbox("Filter by Player", ["All"] + PLAYERS, index=0)
+        with col2:
+            filter_game = st.selectbox("Filter by Game", ["All"] + GAMES, index=0)
+        filter_button = st.form_submit_button("Apply Filters")
+
+    items = fetch_all()
+    if filter_player != "All":
+        items = [i for i in items if i["user_id"] == filter_player]
+    if filter_game != "All":
+        items = [i for i in items if i["raw_game"] == filter_game]
+
+    if items:
+        df = pd.DataFrame(items)[["user_id", "raw_game", "score", "metric", "game_date", "timestamp"]]
+        df["game_date"] = df["game_date"].apply(lambda x: x.split("_")[1])
+        df = df.rename(columns={"user_id": "Player", "raw_game": "Game", "score": "Score", "metric": "Metric", "game_date": "Date", "timestamp": "Timestamp"})
+        df = df.sort_values("Timestamp", ascending=False)
+        st.dataframe(df, use_container_width=True)
     else:
-        try:
-            parsed = parse_post(post)
-            saved = save_score(user_id, parsed)
-            st.success(f"Saved **{parsed['game']}** – score {parsed['score']} {parsed['metric']}")
-            st.json(saved)
-        except ValueError as e:
-            st.error(str(e))
+        st.info("No scores match the filters.")
 
-# All entries with filtering
-st.header("📋 All Scores")
-with st.form("filter_form"):
+with tab3:
+    # Progress tab
+    st.header("My Progress")
     col1, col2 = st.columns(2)
     with col1:
-        filter_player = st.selectbox("Filter by Player", ["All"] + PLAYERS, index=0)
+        progress_player = st.selectbox("Select Player", PLAYERS, key="progress_player")
     with col2:
-        filter_game = st.selectbox("Filter by Game", ["All"] + GAMES, index=0)
-    filter_button = st.form_submit_button("Apply Filters")
-
-items = fetch_all()
-if filter_player != "All":
-    items = [i for i in items if i["user_id"] == filter_player]
-if filter_game != "All":
-    items = [i for i in items if i["raw_game"] == filter_game]
-
-if items:
-    df = pd.DataFrame(items)[["user_id", "raw_game", "score", "metric", "game_date", "timestamp"]]
-    df["game_date"] = df["game_date"].apply(lambda x: x.split("_")[1])
-    df = df.rename(columns={"user_id": "Player", "raw_game": "Game", "score": "Score", "metric": "Metric", "game_date": "Date", "timestamp": "Timestamp"})
-    df = df.sort_values("Timestamp", ascending=False)
-    st.dataframe(df, use_container_width=True)
-else:
-    st.info("No scores match the filters.")
+        progress_game = st.selectbox("Select Game", GAMES, key="progress_game")
+    if st.button("Show Progress", key="show_progress"):
+        img_b64 = plot_user(progress_game, progress_player)
+        if img_b64:
+            st.image(f"data:image/png;base64,{img_b64}", caption=f"{progress_player}'s {progress_game} Progress")
+        else:
+            st.info(f"No scores for {progress_player} in {progress_game}. Submit scores to see progress!")
