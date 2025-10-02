@@ -110,9 +110,11 @@ def plot_chartjs(df: pd.DataFrame, game: str, players: list):
     datasets = []
     for player in players:
         player_df = df[df["user_id"] == player].sort_values("Date")
+        # Convert dates to ISO format strings
+        data_points = [{"x": d.strftime("%Y-%m-%d"), "y": int(s)} for d, s in zip(player_df["Date"], player_df["score"])]
         datasets.append({
             "label": player,
-            "data": [{"x": str(d.date()), "y": int(s)} for d, s in zip(player_df["Date"], player_df["score"])],
+            "data": data_points,
             "borderColor": COLORS.get(player, "#ffffff"),
             "backgroundColor": COLORS.get(player, "#ffffff"),
             "fill": False,
@@ -139,7 +141,9 @@ def plot_chartjs(df: pd.DataFrame, game: str, players: list):
     }
 
     html_code = f"""
-    <canvas id="myChart" style="width:100%;height:400px;"></canvas>
+    <div style="height:450px;">
+        <canvas id="myChart"></canvas>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         const ctx = document.getElementById('myChart').getContext('2d');
@@ -147,7 +151,8 @@ def plot_chartjs(df: pd.DataFrame, game: str, players: list):
         new Chart(ctx, config);
     </script>
     """
-    st.components.v1.html(html_code, height=450)
+    st.components.v1.html(html_code, height=480)
+
 
 
 # --- Streamlit UI ---
