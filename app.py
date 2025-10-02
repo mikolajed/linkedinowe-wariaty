@@ -1,9 +1,10 @@
 import streamlit as st
 import boto3
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 import plotly.express as px
+import random
 import os
 
 # Config/Secrets
@@ -74,6 +75,27 @@ def save_score(user: str, parsed: dict):
     table.put_item(Item=item)
     return item
 
+# Generate test data for past 4 days
+def generate_test_data(user: str, game: str = "Pinpoint"):
+    today = datetime.utcnow().date()
+    for i in range(4):
+        date = today - timedelta(days=i)
+        score = random.randint(3, 6)  # Random Pinpoint guesses
+        item = {
+            "user_id": user,
+            "game_date": f"{game}_{date.isoformat()}",
+            "score": score,
+            "metric": "guesses (lower better)",
+            "timestamp": datetime.utcnow().replace(hour=12, minute=0, second=0, microsecond=0).isoformat(),
+            "raw_game": game,
+        }
+        try:
+            table.put_item(Item=item)
+        except Exception as e:
+            st.error(f"Failed to add test data for {date}: {str(e)}")
+            return False
+    return True
+
 # Fetch all
 def fetch_all():
     try:
@@ -142,6 +164,16 @@ with tab1:
                 st.json(saved)
             except ValueError as e:
                 st.error(str(e))
+
+    # Test data button
+    st.subheader("Generate Test Data")
+    test_player = st.selectbox("Select Player for Test Data", PLAYERS, key="test_player")
+    if st.button("Add Test Data (Pinpoint, Past 4 Days)"):
+        success = generate_test_data(test_player, "Pinpoint")
+        if success:
+            st.success(f"Added 4 test Pinpoint scores for {test_player}!")
+        else:
+            st.error("Failed to add test data. Check DynamoDB permissions.")
 
     # Test buttons
     st.subheader("DynamoDB Test")
