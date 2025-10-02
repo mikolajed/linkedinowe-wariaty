@@ -113,62 +113,78 @@ def plot_user(game: str, user: str):
     dates = [i["game_date"].split("_")[1] for i in items]
     scores = [i["score"] for i in items]
     df = pd.DataFrame({"Date": dates, "Score": scores, "Timestamp": [i["timestamp"] for i in items]})
+    
+    # Debug: Log data
+    st.write(f"**Debug**: Generating Chart.js for {len(dates)} points: {dates}, {scores}")
+    
     # Chart.js HTML
-    chart_id = f"chart_{user}_{game}".replace(" ", "_")
+    chart_id = f"chart_{user}_{game}_{random.randint(1000, 9999)}".replace(" ", "_")  # Unique ID
     html = f"""
-    <canvas id="{chart_id}" style="max-height: 400px;"></canvas>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.min.js"></script>
-    <script>
-    const ctx = document.getElementById('{chart_id}').getContext('2d');
-    new Chart(ctx, {{
-        type: 'line',
-        data: {{
-            labels: {dates},
-            datasets: [{{
-                label: '',
-                data: {scores},
-                borderColor: '#00ff88',
-                borderWidth: 4,
-                pointBackgroundColor: '#00ff88',
-                pointRadius: 6,
-                pointHoverRadius: 8,
-                fill: false,
-                tension: 0.4
-            }}]
-        }},
-        options: {{
-            animation: {{
-                duration: 2000,
-                easing: 'easeInOutQuad',
-                x: {{ duration: 2000, from: 0 }}
-            }},
-            plugins: {{
-                legend: {{ display: false }},
-                title: {{
-                    display: true,
-                    text: "{user}'s {game} Progress",
-                    color: '#ffffff',
-                    font: {{ size: 20, family: 'Arial' }}
-                }}
-            }},
-            scales: {{
-                x: {{
-                    display: true,
-                    ticks: {{ color: '#cccccc', font: {{ size: 12 }} }},
-                    grid: {{ display: false }}
-                }},
-                y: {{
-                    display: true,
-                    ticks: {{ color: '#cccccc', font: {{ size: 12 }} }},
-                    grid: {{ display: false }},
-                    beginAtZero: false
-                }}
-            }},
-            layout: {{ padding: 20 }},
-            maintainAspectRatio: false
-        }}
-    }});
-    </script>
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.min.js"></script>
+    </head>
+    <body>
+        <canvas id="{chart_id}" style="max-height: 400px; width: 100%;"></canvas>
+        <script>
+            try {{
+                const ctx = document.getElementById('{chart_id}').getContext('2d');
+                new Chart(ctx, {{
+                    type: 'line',
+                    data: {{
+                        labels: {dates},
+                        datasets: [{{
+                            label: '',
+                            data: {scores},
+                            borderColor: '#00ff88',
+                            borderWidth: 4,
+                            pointBackgroundColor: '#00ff88',
+                            pointRadius: 6,
+                            pointHoverRadius: 8,
+                            fill: false,
+                            tension: 0.4
+                        }}]
+                    }},
+                    options: {{
+                        animation: {{
+                            duration: 2000,
+                            easing: 'easeInOutQuad',
+                            x: {{ duration: 2000, from: 0 }}
+                        }},
+                        plugins: {{
+                            legend: {{ display: false }},
+                            title: {{
+                                display: true,
+                                text: "{user}'s {game} Progress",
+                                color: '#ffffff',
+                                font: {{ size: 20, family: 'Arial' }}
+                            }}
+                        }},
+                        scales: {{
+                            x: {{
+                                display: true,
+                                ticks: {{ color: '#cccccc', font: {{ size: 12 }} }},
+                                grid: {{ display: false }}
+                            }},
+                            y: {{
+                                display: true,
+                                ticks: {{ color: '#cccccc', font: {{ size: 12 }} }},
+                                grid: {{ display: false }},
+                                beginAtZero: false
+                            }}
+                        }},
+                        layout: {{ padding: 20 }},
+                        maintainAspectRatio: false
+                    }}
+                }});
+            }} catch (error) {{
+                console.error('Chart.js error:', error);
+                document.getElementById('{chart_id}').outerHTML = '<p style="color: red;">Failed to load graph. Check browser console for errors.</p>';
+            }}
+        </script>
+    </body>
+    </html>
     """
     return html, df
 
