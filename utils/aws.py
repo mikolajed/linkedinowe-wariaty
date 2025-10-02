@@ -10,11 +10,14 @@ def get_ddb_table(AWS_CFG, table_name="game_scores"):
     - table_name: str, either "game_scores" or "raw_game_posts"
     """
     if AWS_CFG.get("access_key_id") and AWS_CFG.get("secret_access_key"):
-        session = boto3.Session(
-            region_name=AWS_CFG.get("region", "us-east-1"),
-            aws_access_key_id=AWS_CFG.get("access_key_id"),
-            aws_secret_access_key=AWS_CFG.get("secret_access_key"),
-        )
+        session_kwargs = {
+            "aws_access_key_id": AWS_CFG.get("access_key_id"),
+            "aws_secret_access_key": AWS_CFG.get("secret_access_key"),
+        }
+        if AWS_CFG.get("region"):
+            session_kwargs["region_name"] = AWS_CFG["region"]
+
+        session = boto3.Session(**session_kwargs)
         ddb = session.resource("dynamodb")
         return ddb.Table(table_name)
     else:

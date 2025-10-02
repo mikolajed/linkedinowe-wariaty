@@ -5,27 +5,16 @@ from constants import PLAYERS, GAMES
 def show():
     AWS_CFG = st.secrets.get("aws", {})
     table = aws.get_ddb_table(AWS_CFG)
-
     st.header("⚙️ Debug / Test Data")
 
-    # --- Options Section ---
-    st.subheader("Options")
     debug_mode = st.checkbox("Enable Debug Mode", value=st.session_state.get("debug_mode", False), key="debug_mode")
-    include_pysiek = st.checkbox("Include Pysiek in test data?", value=True)
+    include_pysiek = st.checkbox("Include Pysiek?", value=True)
 
-    # --- Generate Test Data Section ---
-    st.subheader("Generate Test Scores")
     col1, col2 = st.columns([2,2])
-    with col1:
-        test_player = st.selectbox("Select Player", PLAYERS, key="test_player")
-    with col2:
-        test_game = st.selectbox("Select Game", GAMES, key="test_game")
+    test_player = col1.selectbox("Select Player", PLAYERS, key="test_player")
+    test_game = col2.selectbox("Select Game", GAMES, key="test_game")
 
-    entry_range = st.select_slider(
-        "Select entry range to generate",
-        options=list(range(1, 367)),  # 1 to 366
-        value=(1, 7)  # default from 1 to 7
-    )
+    entry_range = st.select_slider("Select entry range", options=list(range(1, 367)), value=(1,7))
     start_entry, end_entry = entry_range
 
     if st.button("Add Test Data"):
@@ -41,8 +30,6 @@ def show():
             end_day=end_entry,
             extra_players=players_to_use
         )
-
         st.success(f"Added entries {start_entry} → {end_entry} for {test_player} for game: {test_game}")
-
         if debug_mode:
             st.info(f"Debug Info: Players included = {', '.join(players_to_use)}")

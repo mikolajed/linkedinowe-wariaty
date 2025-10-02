@@ -5,21 +5,15 @@ from constants import GAMES
 st.set_page_config(page_title="LinkedInowe Wariaty", page_icon="🎮")
 st.title("🎮 LinkedInowe Wariaty")
 
-# Initialize session state
 if "progress_game" not in st.session_state:
-    st.session_state.progress_game = GAMES[0]  
+    st.session_state.progress_game = GAMES[0]
 if "progress_players" not in st.session_state:
     st.session_state.progress_players = None
 if "debug_mode" not in st.session_state:
     st.session_state.debug_mode = False
 
-
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📝 Submit Score",
-    "📋 All Scores",
-    "🗒️ All Posts",   
-    "📈 Progress",    
-    "⚙️ Debug"
+    "📝 Submit Score", "📋 All Scores", "🗒️ All Posts", "📈 Progress", "⚙️ Debug"
 ])
 
 with tab1: submit_score.show()
