@@ -60,12 +60,6 @@ def show():
         st.info(f"No data for {progress_game} in selected range for selected players.")
         return
 
-    # --- Theme-aware colors ---
-    is_dark = st.get_option("theme.base") == "dark"
-    bg_color = "#0e1117" if is_dark else "#ffffff"
-    text_color = "#ffffff" if is_dark else "#000000"
-    grid_color = "#444444" if is_dark else "#cccccc"
-
     # --- Plotly chart ---
     fig = px.line(
         df,
@@ -73,27 +67,25 @@ def show():
         y="score",
         color="user_id",
         markers=True,
-        line_shape="spline"
+        line_shape="spline",
+        color_discrete_map=COLORS
     )
 
-    # Customize colors and markers per player
-    for player in progress_players:
-        fig.update_traces(
-            selector=dict(name=player),
-            line=dict(color=COLORS.get(player, "#ffffff"), width=4),
-            marker=dict(size=8),
-            name=player
-        )
+    # Update line and marker styles
+    fig.update_traces(
+        line=dict(width=3),
+        marker=dict(size=8)
+    )
 
     # Layout customization
     fig.update_layout(
-        plot_bgcolor=bg_color,
-        paper_bgcolor=bg_color,
-        font=dict(color=text_color),
-        xaxis=dict(showgrid=True, gridcolor=grid_color, title="Date"),
-        yaxis=dict(showgrid=True, gridcolor=grid_color, title="Score"),
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        xaxis=dict(showgrid=True, title="Date"),
+        yaxis=dict(showgrid=True, title="Score"),
         legend=dict(title="Player"),
-        margin=dict(l=20, r=20, t=40, b=20)
+        margin=dict(l=20, r=20, t=40, b=20),
+        hovermode='x unified'
     )
 
     # Display the chart with theme support
@@ -101,5 +93,5 @@ def show():
         fig,
         use_container_width=True,
         config={"displayModeBar": False},
-        theme=None  # This will make it use Streamlit's theme
+        theme=None  # Use Streamlit's theme
     )
