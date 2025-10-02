@@ -3,14 +3,12 @@ import boto3
 import re
 from datetime import datetime, timedelta
 import pandas as pd
-import plotly.express as px
 import random
-import os
 
 # Config/Secrets
 try:
     AWS_CFG = st.secrets.get("aws", {})
-except Exception as e:
+except Exception:
     st.error("Missing secrets – add [aws] section in Streamlit Cloud Secrets tab.")
     st.stop()
 
@@ -27,15 +25,19 @@ def get_ddb_table():
             return ddb.Table("game-scores")
         else:
             st.warning("No AWS credentials – using in-memory storage (data lost on restart).")
+
             class MockTable:
-                def __init__(self): self.data = []
-                def put_item(self, Item): self.data.append(Item)
-                def scan(self): return {"Items": self.data}
-                def delete_item(self, Key): 
-                    self.data = [i for i in self.data if not (
-                        i.get('user_id') == Key['user_id'] 
-                        and i.get('game_date') == Key['game_date']
-                    )]
+                def __init__(self):
+                    self.data = []
+                def put_item(self, Item):
+                    self.data.append(Item)
+                def scan(self):
+                    return {"Items": self.data}
+                def delete_item(self, Key):
+                    self.data = [
+                        i for i in self.data
+                        if not (i.get('user_id') == Key['user_id'] and i.get('game_date') == Key['game_date'])
+                    ]
             return MockTable()
     except Exception as e:
         st.error(f"DynamoDB error: {str(e)}. Check credentials and table 'game-scores'.")
@@ -56,8 +58,7 @@ def parse_post(text: str):
         return {"game": "Pinpoint", "score": int(m.group(1)), "metric": "guesses (lower better)"}
     m = re.search(r"Queens #\d+ \|\s*([\d:]+)", text, re.IGNORECASE)
     if m:
-        time_str = m.group(1)
-        mins, secs = map(int, time_str.split(":"))
+        mins, secs = map(int, m.group(1).split(":"))
         return {"game": "Queens", "score": mins*60 + secs, "metric": "seconds (lower better)"}
     m = re.search(r"Crossclimb #\d+ \|\s*(\d+)\s*clues", text, re.IGNORECASE)
     if m:
@@ -80,12 +81,12 @@ def save_score(user: str, parsed: dict):
     table.put_item(Item=item)
     return item
 
-# Generate test data
+# Generate test data for past 4 days
 def generate_test_data(user: str, game: str = "Pinpoint"):
     today = datetime.utcnow().date()
     for i in range(4):
         date = today - timedelta(days=i)
-        score = random.randint(3, 6)  # Random Pinpoint guesses
+        score = random.randint(3, 6)
         item = {
             "user_id": user,
             "game_date": f"{game}_{date.isoformat()}",
@@ -109,7 +110,7 @@ def fetch_all():
         st.error(f"Failed to fetch scores: {str(e)}. Check DynamoDB permissions.")
         return []
 
-# Plot progress
+# Plot game with pretty visuals
 def plot_game(game: str, selected_users: list):
     items = [i for i in fetch_all() if i["raw_game"].lower() == game.lower() and i["user_id"] in selected_users]
     if not items:
@@ -117,49 +118,49 @@ def plot_game(game: str, selected_users: list):
 
     df = pd.DataFrame(items)
     df["Date"] = df["game_date"].apply(lambda x: x.split("_")[1])
-    df["Score"] = df["score"].apply(int)
+    df["Score"] = df["score"].astype(int)
     df = df[["user_id", "Date", "Score", "timestamp"]].sort_values("timestamp")
 
     debug_info = {user: df[df["user_id"] == user][["Date", "Score"]].to_dict() for user in selected_users}
 
-    fig = px.line(
-        df,
-        x="Date",
-        y="Score",
-        color="user_id",
-        title=f"{game} Progress for Selected Players",
-        line_shape="spline",
-        markers=True,
-        template="plotly_dark"
-    )
+    import plotly.graph_objects as go
+    fig = go.Figure()
+
     for user in selected_users:
-        if user in df["user_id"].values:
-            fig.update_traces(
-                selector=dict(name=user),
-                line=dict(color=COLORS.get(user, "#ffffff"), width=4),
-                marker=dict(size=8, color=COLORS.get(user, "#ffffff"))
-            )
+        user_df = df[df["user_id"] == user]
+        fig.add_trace(go.Scatter(
+            x=user_df["Date"],
+            y=user_df["Score"],
+            mode="lines+markers",
+            name=user,
+            line=dict(color=COLORS.get(user, "#ffffff"), width=4, shape="spline"),
+            marker=dict(size=8, color=COLORS.get(user, "#ffffff"))
+        ))
+
     fig.update_layout(
-        font=dict(family="Arial", size=12, color="#ffffff"),
-        title_font_size=20,
-        xaxis_title="",
-        yaxis_title="",
-        xaxis=dict(ticks="", tickfont=dict(size=12), showgrid=False),
-        yaxis=dict(ticks="", tickfont=dict(size=12), showgrid=False),
-        showlegend=True,
-        legend=dict(font=dict(size=12, color="#ffffff")),
-        margin=dict(l=20, r=20, t=50, b=20),
+        title=f"{game} Progress",
+        xaxis=dict(title="Date", showgrid=True, zeroline=False, showline=True, linecolor="white"),
+        yaxis=dict(title="Score", showgrid=True, zeroline=False, showline=True, linecolor="white"),
         plot_bgcolor="#1f1f1f",
-        paper_bgcolor="#1f1f1f"
+        paper_bgcolor="#1f1f1f",
+        font=dict(color="white"),
+        legend=dict(title="Players"),
+        margin=dict(l=40, r=20, t=60, b=40),
+        hovermode="x unified",
+        transition=dict(duration=800, easing="cubic-in-out"),
+        showlegend=True
     )
-    return fig, df[["user_id", "Date", "Score"]], debug_info
+
+    config = {"displayModeBar": False}
+    return fig, df[["user_id", "Date", "Score"]], debug_info, config
+
 
 # UI
 st.set_page_config(page_title="LinkedInowe Wariaty", page_icon="🎮")
 st.title("🎮 LinkedInowe Wariaty – Game Score Tracker")
 st.markdown("Track scores for Mikuś, Maciuś, and Patryk across Pinpoint, Queens, Crossclimb, and more!")
 
-# Init state
+# Init session state
 if "progress_game" not in st.session_state:
     st.session_state.progress_game = "Pinpoint"
 if "progress_players" not in st.session_state:
@@ -172,7 +173,7 @@ tab1, tab2, tab3, tab4 = st.tabs(["📝 Submit Score", "📋 All Scores", "📈 
 
 with tab1:
     st.header("Submit a New Score")
-    user_id = st.selectbox("Select Player", PLAYERS, help="Choose who you are.", key="submit_player")
+    user_id = st.selectbox("Select Player", PLAYERS, key="submit_player")
     post = st.text_area("Paste the LinkedIn share text here", height=150, placeholder="E.g., Pinpoint #135 | 3 guesses")
     if st.button("Save Score", key="save_score"):
         if not post.strip():
@@ -182,8 +183,7 @@ with tab1:
                 parsed = parse_post(post)
                 saved = save_score(user_id, parsed)
                 st.success(f"Saved **{parsed['game']}** – score {parsed['score']} {parsed['metric']}")
-                if st.session_state.debug_mode:
-                    st.json(saved)
+                st.json(saved)
             except ValueError as e:
                 st.error(str(e))
 
@@ -206,7 +206,8 @@ with tab2:
     if items:
         df = pd.DataFrame(items)[["user_id", "raw_game", "score", "metric", "game_date", "timestamp"]]
         df["game_date"] = df["game_date"].apply(lambda x: x.split("_")[1])
-        df = df.rename(columns={"user_id": "Player", "raw_game": "Game", "score": "Score", "metric": "Metric", "game_date": "Date", "timestamp": "Timestamp"})
+        df = df.rename(columns={"user_id": "Player", "raw_game": "Game", "score": "Score",
+                                "metric": "Metric", "game_date": "Date", "timestamp": "Timestamp"})
         df = df.sort_values("Timestamp", ascending=False)
         st.dataframe(df, use_container_width=True)
     else:
@@ -216,56 +217,34 @@ with tab3:
     st.header("Game Progress")
     col1, col2 = st.columns([2, 2])
     with col1:
-        progress_game = st.selectbox(
-            "Select Game",
-            GAMES,
-            index=GAMES.index("Pinpoint"),
-            key="progress_game",
-            on_change=lambda: st.session_state.update(progress_game=st.session_state.progress_game)
-        )
+        progress_game = st.selectbox("Select Game", GAMES, index=GAMES.index("Pinpoint"), key="progress_game")
     with col2:
-        progress_players = st.multiselect(
-            "Select Players",
-            PLAYERS,
-            default=st.session_state.progress_players,
-            key="progress_players",
-            on_change=lambda: st.session_state.update(progress_players=st.session_state.progress_players)
-        )
+        progress_players = st.multiselect("Select Players", PLAYERS, default=st.session_state.progress_players, key="progress_players")
 
     if not progress_players:
         st.info("Please select at least one player to show progress.")
     else:
-        fig, df, debug_info = plot_game(progress_game, progress_players)
+        fig, df, debug_info, config = plot_game(progress_game, progress_players)
         if fig:
             if st.session_state.debug_mode:
-                st.write(f"**Debug**: Found {len(df)} scores for {progress_game} across {len(progress_players)} players")
+                st.write(f"**Debug**: Found {len(df)} scores for {progress_game}")
                 st.write(f"**Debug Data**: {debug_info}")
                 st.dataframe(df, use_container_width=True)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, config=config)
         else:
-            st.info(f"No scores for {progress_game} for selected players. Use Debug Tools → Add Test Data to generate scores.")
+            st.info(f"No scores for {progress_game}. Use Debug tab to add test data.")
 
 with tab4:
-    st.header("⚙️ Debug Settings & Tools")
-    st.session_state.debug_mode = st.checkbox(
-        "Enable Debug Mode",
-        value=st.session_state.debug_mode
-    )
+    st.header("Debug Tools")
+    st.session_state.debug_mode = st.checkbox("Enable Debug Mode", value=st.session_state.debug_mode)
 
     if st.session_state.debug_mode:
-        st.success("Debug mode is ON – extra tools enabled.")
-
-        # Test data
         st.subheader("Generate Test Data")
         test_player = st.selectbox("Select Player for Test Data", PLAYERS, key="test_player")
         if st.button("Add Test Data (Pinpoint, Past 4 Days)"):
-            success = generate_test_data(test_player, "Pinpoint")
-            if success:
+            if generate_test_data(test_player, "Pinpoint"):
                 st.success(f"Added 4 test Pinpoint scores for {test_player}!")
-            else:
-                st.error("Failed to add test data. Check DynamoDB permissions.")
 
-        # DynamoDB tests
         st.subheader("DynamoDB Test")
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -294,7 +273,7 @@ with tab4:
         with col3:
             if st.button("Test Delete"):
                 try:
-                    key = {'user_id': 'Mikuś', 'game_date': f"Pinpoint_{datetime.utcnow().date().isoformat()}"}
+                    key = {"user_id": "Mikuś", "game_date": f"Pinpoint_{datetime.utcnow().date().isoformat()}"}
                     table.delete_item(Key=key)
                     st.success("Test delete successful!")
                 except Exception as e:
