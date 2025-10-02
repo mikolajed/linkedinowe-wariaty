@@ -11,7 +11,7 @@ __pycache__/
 .pytest_cache/
 
 # Streamlit secrets and config
-.streamlit/secrets.toml  # Comment out if you want to commit a template version
+.streamlit/secrets.toml
 .streamlit/config.toml
 
 # AWS credentials (never commit these!)
