@@ -7,7 +7,7 @@ from utils import data, aws
 
 def show():
     """
-    Display the Progress tab with a clean, embedded Plotly line chart.
+    Display the Progress tab with a clean, theme-aware Plotly line chart.
     """
 
     # Get DynamoDB table
@@ -61,6 +61,12 @@ def show():
         st.info(f"No data for {progress_game} in selected range for selected players.")
         return
 
+    # --- Theme-aware colors ---
+    is_dark = st.get_option("theme.base") == "dark"
+    bg_color = "#0e1117" if is_dark else "#ffffff"
+    text_color = "#ffffff" if is_dark else "#000000"
+    grid_color = "#444444" if is_dark else "#cccccc"
+
     # --- Plotly line chart ---
     fig = px.line(
         df,
@@ -71,7 +77,7 @@ def show():
         line_shape="spline"
     )
 
-    # Customize colors and marker size
+    # Customize colors and markers per player
     for player in progress_players:
         fig.update_traces(
             selector=dict(name=player),
@@ -80,20 +86,16 @@ def show():
             name=player
         )
 
-    # Theme-aware background
-    is_dark = st.get_option("theme.base") == "dark"
-    bg_color = "#0e1117" if is_dark else "#ffffff"
-    text_color = "#ffffff" if is_dark else "#000000"
-
+    # Layout customization for theme integration
     fig.update_layout(
         plot_bgcolor=bg_color,
         paper_bgcolor=bg_color,
         font=dict(color=text_color),
-        xaxis=dict(showgrid=True, gridcolor="gray"),
-        yaxis=dict(showgrid=True, gridcolor="gray"),
+        xaxis=dict(showgrid=True, gridcolor=grid_color, title=dict(text="Date")),
+        yaxis=dict(showgrid=True, gridcolor=grid_color, title=dict(text="Score")),
         legend=dict(title="Player"),
-        margin=dict(l=20, r=20, t=40, b=20),
+        margin=dict(l=20, r=20, t=40, b=20)
     )
 
-    # Remove Plotly modebar for a clean embedded look
+    # Remove Plotly modebar for clean integration
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
