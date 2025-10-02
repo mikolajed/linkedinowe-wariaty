@@ -110,7 +110,6 @@ def plot_chartjs(df: pd.DataFrame, game: str, players: list):
     datasets = []
     for player in players:
         player_df = df[df["user_id"] == player].sort_values("Date")
-        # Convert dates to ISO format strings
         data_points = [{"x": d.strftime("%Y-%m-%d"), "y": int(s)} for d, s in zip(player_df["Date"], player_df["score"])]
         datasets.append({
             "label": player,
@@ -134,7 +133,7 @@ def plot_chartjs(df: pd.DataFrame, game: str, players: list):
                 "x": {"type": "time", "time": {"unit": "day"}, "title": {"display": True, "text": "Date"}},
                 "y": {"title": {"display": True, "text": "Score"}}
             },
-            "animation": {"duration": 2000, "easing": "easeOutQuart"},
+            "animation": False,  # DISABLE animation
             "elements": {"line": {"borderWidth": 4}},
             "hover": {"mode": "nearest", "intersect": True}
         }
@@ -152,7 +151,6 @@ def plot_chartjs(df: pd.DataFrame, game: str, players: list):
     </script>
     """
     st.components.v1.html(html_code, height=480)
-
 
 
 # --- Streamlit UI ---
