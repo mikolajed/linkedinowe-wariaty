@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 import random
-import pandas as pd
+from constants import GAMES
 
 def fetch_all(table):
     try:
@@ -8,40 +8,34 @@ def fetch_all(table):
     except Exception:
         return []
 
-def save_score(table, user: str, parsed: dict):
-    item = {
-        "user_id": user,
-        "game_date": f"{parsed['game']}_{datetime.utcnow().date().isoformat()}",
-        "score": parsed["score"],
-        "metric": parsed["metric"],
-        "timestamp": datetime.utcnow().isoformat(),
-        "raw_game": parsed["game"],
-    }
-    table.put_item(Item=item)
-    return item
+def save_score(table, user_id: str, parsed: dict):
+    if parsed["raw_game"] not in GAMES:
+        raise ValueError(f"Cannot save score: game '{parsed['raw_game']}' is not supported.")
+    table.put_item(Item=parsed)
+    return parsed
 
-def generate_test_data(table, user: str, game: str = "Pinpoint", days: int = 7):
+def generate_test_data(table, user: str, game: str = "Mini Sudoku", days: int = 7):
+    if game not in GAMES:
+        raise ValueError(f"Game {game} not allowed.")
     today = datetime.utcnow().date()
     for i in range(days):
         date = today - timedelta(days=i)
-
-        # Different score types depending on the game
         if game in ["Pinpoint", "Crossclimb"]:
-            score = random.randint(3, 10)  # guesses or clues
+            score = random.randint(3, 10)
         elif game in ["Queens", "Mini Sudoku"]:
-            score = random.randint(60, 600)  # seconds
+            score = random.randint(60, 600)
         elif game in ["Tango", "Zip"]:
-            score = random.randint(10, 100)  # points
+            score = random.randint(10, 100)
         else:
-            score = random.randint(1, 20)  # fallback
+            score = random.randint(1, 20)
 
         item = {
             "user_id": user,
-            "game_date": f"{game}_{date.isoformat()}",
+            "raw_game": game,
             "score": score,
             "metric": "points/guesses/seconds",
-            "timestamp": (datetime.utcnow() - timedelta(days=i)).replace(hour=12, minute=0, second=0).isoformat(),
-            "raw_game": game,
+            "game_number": i+1,
+            "game_date": date.isoformat(),
+            "timestamp": datetime.utcnow().isoformat()
         }
         table.put_item(Item=item)
-    return True
