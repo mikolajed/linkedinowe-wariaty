@@ -15,11 +15,16 @@ def show():
 
     # --- Generate Test Data Section ---
     st.subheader("Generate Test Scores")
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns([2,2])
     with col1:
         test_player = st.selectbox("Select Player", PLAYERS, key="test_player")
     with col2:
-        test_game = st.selectbox("Select Game", GAMES, key="test_game")
+        start_idx, end_idx = st.select_slider(
+            "Select Game Range",
+            options=list(range(len(GAMES))),
+            value=(0, len(GAMES) - 1),
+            format_func=lambda i: GAMES[i]
+        )
 
     days = st.slider("Number of entries to generate", 1, 30, 7)
 
@@ -28,14 +33,18 @@ def show():
         if not include_pysiek and "Pysiek" in players_to_use:
             players_to_use.remove("Pysiek")
 
-        data.generate_test_data(
-            table,
-            test_player,
-            game=test_game,
-            days=days,
-            extra_players=players_to_use
-        )
-        st.success(f"Added {days} entries for {test_player} ({test_game})!")
+        selected_games = GAMES[start_idx:end_idx + 1]
+
+        for game in selected_games:
+            data.generate_test_data(
+                table,
+                test_player,
+                game=game,
+                days=days,
+                extra_players=players_to_use
+            )
+
+        st.success(f"Added {days} entries for {test_player} for games: {', '.join(selected_games)}")
 
         if debug_mode:
             st.info(f"Debug Info: Players included = {', '.join(players_to_use)}")
