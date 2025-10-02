@@ -116,9 +116,8 @@ def plot_game(game: str, selected_users: list, date_filter: str):
     df = pd.DataFrame(items)
     df["Date"] = pd.to_datetime(df["game_date"].apply(lambda x: x.split("_")[1]))
     df["Score"] = df["score"].astype(int)
-    df = df[["user_id", "Date", "Score", "timestamp"]].sort_values("Date")
+    df = df[["user_id", "Date", "Score"]].sort_values("Date")
 
-    # Date filter
     today = pd.Timestamp(datetime.utcnow().date())
     if date_filter == "Last 7 days":
         df = df[df["Date"] >= (today - pd.Timedelta(days=7))]
@@ -138,49 +137,61 @@ def plot_game(game: str, selected_users: list, date_filter: str):
         fig.add_trace(go.Scatter(
             x=user_df["Date"],
             y=user_df["Score"],
-            mode="markers",
-            name=user,
-            marker=dict(size=8, color=COLORS.get(user, "#ffffff"))
+            mode="lines+markers",
+            line=dict(color=COLORS.get(user, "#ffffff"), width=4, shape="spline"),
+            marker=dict(size=8, color=COLORS.get(user, "#ffffff")),
+            name=user
         ))
 
-    # Frames: draw lines progressively
+    # Frames: interpolate points for “growing line” effect
     frames = []
-    max_steps = df["Date"].nunique()  # one frame per date
-    for step in range(1, max_steps + 1):
+    steps = 30  # number of animation steps
+    for step in range(1, steps+1):
         frame_data = []
         for user in selected_users:
-            user_df = df[df["user_id"] == user].iloc[:step]
+            user_df = df[df["user_id"] == user]
+            x = user_df["Date"]
+            y = user_df["Score"]
+            idx = max(1, int(len(x) * step / steps))
             frame_data.append(go.Scatter(
-                x=user_df["Date"],
-                y=user_df["Score"],
-                mode="lines+markers",
+                x=x.iloc[:idx],
+                y=y.iloc[:idx],
+                mode="lines",
                 line=dict(color=COLORS.get(user, "#ffffff"), width=4, shape="spline"),
-                marker=dict(size=0),  # hide markers in animation (already drawn)
-                showlegend=False
+                showlegend=False,
+                marker=dict(size=0)
             ))
-        frames.append(go.Frame(data=frame_data, name=str(step)))
+        frames.append(go.Frame(data=frame_data))
 
     fig.frames = frames
 
-    # Layout with auto-play animation
+    # Autoplay animation
     fig.update_layout(
-        title=f"{game} Progress",
         xaxis=dict(title="Date", showgrid=True, linecolor="white"),
         yaxis=dict(title="Score", showgrid=True, linecolor="white"),
         plot_bgcolor="#1f1f1f",
         paper_bgcolor="#1f1f1f",
         font=dict(color="white"),
         legend=dict(title="Players"),
-        margin=dict(l=40, r=20, t=60, b=40),
         hovermode="x unified",
-        showlegend=True
+        margin=dict(l=40, r=20, t=60, b=40),
+        showlegend=True,
+        updatemenus=[{
+            "type": "buttons",
+            "showactive": False,
+            "buttons": [{
+                "label": "Play",
+                "method": "animate",
+                "args": [None, {
+                    "frame": {"duration": 50, "redraw": True},
+                    "fromcurrent": True,
+                    "mode": "immediate"
+                }]
+            }]
+        }]
     )
 
-    # Configure animation
     config = {"displayModeBar": False}
-    fig.update(frames=frames)
-    fig.update_layout(updatemenus=[dict(type="buttons", showactive=False, buttons=[dict(label="Play",
-        method="animate", args=[None, {"frame": {"duration": 500, "redraw": True}, "fromcurrent": True, "mode": "immediate", "transition": {"duration": 0}}])])])
 
     return fig, df[["user_id", "Date", "Score"]], debug_info, config
 
