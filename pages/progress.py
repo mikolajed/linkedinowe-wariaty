@@ -13,8 +13,19 @@ def show():
     col1, col2, col3 = st.columns([2,2,2])
     with col1:
         progress_game = st.selectbox("Select Game", GAMES, index=0, key="progress_game")
+    
+    # Ensure session_state.progress_players is a list
+    if not isinstance(st.session_state.get("progress_players"), list):
+        st.session_state.progress_players = PLAYERS.copy()
+    
     with col2:
-        progress_players = st.multiselect("Select Players", PLAYERS, default=PLAYERS, key="progress_players")
+        progress_players = st.multiselect(
+            "Select Players", 
+            options=PLAYERS, 
+            default=st.session_state.progress_players, 
+            key="progress_players"
+        )
+    
     with col3:
         date_filter = st.selectbox("Date Range", ["Last 7 days","Last 30 days","All"], index=0)
 
