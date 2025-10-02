@@ -65,9 +65,20 @@ def show():
         paper_bgcolor='rgba(0,0,0,0)',
         xaxis=dict(showgrid=True, gridcolor=grid_color, title="Game #"),
         yaxis=dict(showgrid=True, gridcolor=grid_color, title="Score"),
-        legend=dict(title=dict(text="Player", font=dict(color=legend_text_color)), font=dict(color=legend_text_color)),
+        legend=dict(
+            title=dict(text="Player", font=dict(color=legend_text_color)),
+            font=dict(color=legend_text_color),  # <- This ensures legend items are visible
+            bgcolor=bg_color,                   # background of the legend
+            bordercolor=grid_color,
+            borderwidth=1,
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01
+        ),
         hovermode='x unified',
         hoverlabel=dict(bgcolor=bg_color, font_color=text_color)
     )
+
 
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False}, theme=None)
