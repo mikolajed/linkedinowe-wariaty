@@ -121,7 +121,7 @@ def plot_game(game: str, selected_users: list):
     debug_info = {user: df[df["user_id"] == user][["Date", "Score"]].to_dict() for user in selected_users}
     st.write(f"**Debug**: Plotting {len(df)} points for {game}: {debug_info}")
     
-    # Plotly graph with spline interpolation
+    # Plotly graph with spline interpolation and markers
     fig = px.line(
         df,
         x="Date",
@@ -129,7 +129,7 @@ def plot_game(game: str, selected_users: list):
         color="user_id",
         title=f"{game} Progress for Selected Players",
         line_shape="spline",  # Spline interpolation
-        markers=False,  # No markers
+        markers=True,  # Show data points
         template="plotly_dark"
     )
     # Custom colors for users
@@ -137,7 +137,8 @@ def plot_game(game: str, selected_users: list):
         if user in df["user_id"].values:
             fig.update_traces(
                 selector=dict(name=user),
-                line=dict(color=COLORS.get(user, "#ffffff"), width=4)
+                line=dict(color=COLORS.get(user, "#ffffff"), width=4),
+                marker=dict(size=8, color=COLORS.get(user, "#ffffff"))
             )
     fig.update_layout(
         font=dict(family="Arial", size=12, color="#ffffff"),
