@@ -1,4 +1,4 @@
-PLAYERS = ["Mikuś", "Maciuś", "Patryk"]
+PLAYERS = ["Mikuś", "Maciuś", "Patryk", "Pysiek"]
 
 GAMES = [
     "Mini Sudoku",
@@ -10,7 +10,8 @@ GAMES = [
 ]
 
 COLORS = {
-    "Mikuś": "#00ff88",
-    "Maciuś": "#0077ff",
-    "Patryk": "#cc00ff",
+    "Mikuś": "#00ff88",  # green
+    "Maciuś": "#0077ff", # blue
+    "Patryk": "#ff0000", # red
+    "Pysiek": "#cc00ff"  # purple
 }
