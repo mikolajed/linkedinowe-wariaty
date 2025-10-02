@@ -3,9 +3,9 @@ import boto3
 import re
 from datetime import datetime, timedelta
 import pandas as pd
+import plotly.express as px
 import random
 import os
-import streamlit.components.v1 as components
 
 # Config/Secrets
 try:
@@ -111,84 +111,44 @@ def plot_user(game: str, user: str):
         return None, []
     items.sort(key=lambda x: x["timestamp"])
     dates = [i["game_date"].split("_")[1] for i in items]
-    scores = [i["score"] for i in items]
+    scores = [int(i["score"]) for i in items]  # Convert Decimal to int
     df = pd.DataFrame({"Date": dates, "Score": scores, "Timestamp": [i["timestamp"] for i in items]})
     
     # Debug: Log data
-    st.write(f"**Debug**: Generating Chart.js for {len(dates)} points: {dates}, {scores}")
+    st.write(f"**Debug**: Plotting {len(dates)} points: {dates}, {scores}")
     
-    # Chart.js HTML
-    chart_id = f"chart_{user}_{game}_{random.randint(1000, 9999)}".replace(" ", "_")
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.3/chart.umd.min.js"></script>
-    </head>
-    <body>
-        <canvas id="{chart_id}" style="max-height: 400px; width: 100%;"></canvas>
-        <script>
-            window.onload = function() {{
-                try {{
-                    const ctx = document.getElementById('{chart_id}').getContext('2d');
-                    new Chart(ctx, {{
-                        type: 'line',
-                        data: {{
-                            labels: {dates},
-                            datasets: [{{
-                                label: '',
-                                data: {scores},
-                                borderColor: '#00ff88',
-                                borderWidth: 4,
-                                pointBackgroundColor: '#00ff88',
-                                pointRadius: 6,
-                                pointHoverRadius: 8,
-                                fill: false,
-                                tension: 0.4
-                            }}]
-                        }},
-                        options: {{
-                            animation: {{
-                                duration: 2000,
-                                easing: 'easeInOutQuad',
-                                x: {{ duration: 2000, from: 0 }}
-                            }},
-                            plugins: {{
-                                legend: {{ display: false }},
-                                title: {{
-                                    display: true,
-                                    text: "{user}'s {game} Progress",
-                                    color: '#ffffff',
-                                    font: {{ size: 20, family: 'Arial' }}
-                                }}
-                            }},
-                            scales: {{
-                                x: {{
-                                    display: true,
-                                    ticks: {{ color: '#cccccc', font: {{ size: 12 }} }},
-                                    grid: {{ display: false }}
-                                }},
-                                y: {{
-                                    display: true,
-                                    ticks: {{ color: '#cccccc', font: {{ size: 12 }} }},
-                                    grid: {{ display: false }},
-                                    beginAtZero: false
-                                }}
-                            }},
-                            layout: {{ padding: 20 }},
-                            maintainAspectRatio: false
-                        }}
-                    }});
-                }} catch (error) {{
-                    console.error('Chart.js error:', error);
-                    document.getElementById('{chart_id}').outerHTML = '<p style="color: red;">Failed to load graph. Check browser console for errors.</p>';
-                }}
-            }};
-        </script>
-    </body>
-    </html>
-    """
-    return html, df
+    # Plotly graph
+    fig = px.line(
+        df,
+        x="Date",
+        y="Score",
+        title=f"{user}'s {game} Progress",
+        markers=True,
+        template="plotly_dark"
+    )
+    fig.update_traces(
+        line=dict(color="#00ff88", width=4),
+        marker=dict(size=8),
+        opacity=0,  # Start invisible for animation
+        transition=dict(duration=2000, easing="cubic-in-out")
+    )
+    fig.update_layout(
+        font=dict(family="Arial", size=12, color="#ffffff"),
+        title_font_size=20,
+        xaxis_title="",
+        yaxis_title="",
+        xaxis=dict(ticks="", tickfont=dict(size=12), showgrid=False),
+        yaxis=dict(ticks="", tickfont=dict(size=12), showgrid=False),
+        showlegend=False,
+        margin=dict(l=20, r=20, t=50, b=20),
+        plot_bgcolor="#1f1f1f",
+        paper_bgcolor="#1f1f1f",
+        animations=[dict(
+            method="animate",
+            args=[[{"opacity": 1}], {"frame": {"duration": 2000, "redraw": True}, "fromcurrent": True, "mode": "immediate"}]
+        )]
+    )
+    return fig, df
 
 # UI
 st.set_page_config(page_title="LinkedInowe Wariaty", page_icon="🎮")
@@ -295,13 +255,10 @@ with tab3:
     with col2:
         progress_game = st.selectbox("Select Game", GAMES, key="progress_game")
     if st.button("Show Progress", key="show_progress"):
-        html, df = plot_user(progress_game, progress_player)
-        if html:
+        fig, df = plot_user(progress_game, progress_player)
+        if fig:
             st.write(f"**Debug**: Found {len(df)} scores for {progress_player} in {progress_game}")
             st.dataframe(df[["Date", "Score"]], use_container_width=True)
-            # Debug: Show raw HTML
-            with st.expander("Debug: Raw Chart.js HTML"):
-                st.code(html)
-            components.html(html, height=450)
+            st.plotly_chart(fig, use_container_width=True)
         else:
             st.info(f"No scores for {progress_player} in {progress_game}. Use 'Add Test Data' in Submit Score tab to add scores.")
