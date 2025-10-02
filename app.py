@@ -4,16 +4,15 @@ import re
 from datetime import datetime, timedelta
 import pandas as pd
 import random
-import json
 
-# Config/Secrets
+# --- Config / Secrets ---
 try:
     AWS_CFG = st.secrets.get("aws", {})
 except Exception as e:
     st.error("Missing secrets – add [aws] section in Streamlit Cloud Secrets tab.")
     st.stop()
 
-# AWS DynamoDB (or mock)
+# --- AWS DynamoDB (or mock) ---
 def get_ddb_table():
     try:
         if AWS_CFG.get("access_key_id"):
@@ -26,12 +25,11 @@ def get_ddb_table():
             return ddb.Table("game-scores")
         else:
             st.warning("No AWS credentials – using in-memory storage (data lost on restart).")
-
             class MockTable:
                 def __init__(self): self.data = []
                 def put_item(self, Item): self.data.append(Item)
                 def scan(self): return {"Items": self.data}
-                def delete_item(self, Key): 
+                def delete_item(self, Key):
                     self.data = [i for i in self.data if not (i.get('user_id') == Key['user_id'] and i.get('game_date') == Key['game_date'])]
             return MockTable()
     except Exception as e:
@@ -40,12 +38,12 @@ def get_ddb_table():
 
 table = get_ddb_table()
 
-# Players, Games, Colors
+# --- Players, Games, Colors ---
 PLAYERS = ["Mikuś", "Maciuś", "Patryk"]
 GAMES = ["Pinpoint", "Queens", "Crossclimb", "Tango"]
 COLORS = {"Mikuś": "#00ff88", "Maciuś": "#0077ff", "Patryk": "#cc00ff"}
 
-# Parse LinkedIn post
+# --- Parse LinkedIn post ---
 def parse_post(text: str):
     text = text.strip()
     m = re.search(r"Pinpoint #\d+ \|\s*(\d+)\s*guesses", text, re.IGNORECASE)
@@ -60,7 +58,7 @@ def parse_post(text: str):
     if m: return {"game": "Tango", "score": int(m.group(1)), "metric": "points (higher better)"}
     raise ValueError("Could not detect a supported game pattern.")
 
-# Save score
+# --- Save score ---
 def save_score(user: str, parsed: dict):
     item = {
         "user_id": user,
@@ -73,7 +71,7 @@ def save_score(user: str, parsed: dict):
     table.put_item(Item=item)
     return item
 
-# Generate test data
+# --- Generate test data ---
 def generate_test_data(user: str, game: str = "Pinpoint"):
     today = datetime.utcnow().date()
     for i in range(4):
@@ -90,7 +88,7 @@ def generate_test_data(user: str, game: str = "Pinpoint"):
         table.put_item(Item=item)
     return True
 
-# Fetch all scores
+# --- Fetch all scores ---
 def fetch_all():
     try:
         return table.scan().get("Items", [])
@@ -98,71 +96,12 @@ def fetch_all():
         st.error(f"Failed to fetch scores: {str(e)}.")
         return []
 
-# Chart.js plot
-def plot_chartjs(df: pd.DataFrame, game: str, players: list):
-    if df.empty:
-        st.info(f"No data for {game} for selected players.")
-        return
-
-    # Ensure Date column exists
-    if "Date" not in df.columns:
-        df["Date"] = pd.to_datetime(df["game_date"].apply(lambda x: x.split("_")[1]))
-
-    datasets = []
-    for player in players:
-        player_df = df[df["user_id"] == player].sort_values("Date")
-        # Use correct score column
-        score_col = "score" if "score" in player_df.columns else "Score"
-        # Chart.js expects ISO format with full timestamp
-        data_points = [{"x": d.strftime("%Y-%m-%dT12:00:00"), "y": int(s)} for d, s in zip(player_df["Date"], player_df[score_col])]
-        datasets.append({
-            "label": player,
-            "data": data_points,
-            "borderColor": COLORS.get(player, "#ffffff"),
-            "backgroundColor": COLORS.get(player, "#ffffff"),
-            "fill": False,
-            "tension": 0.4,
-            "pointRadius": 5,
-            "pointHoverRadius": 7
-        })
-
-    config = {
-        "type": "line",
-        "data": {"datasets": datasets},
-        "options": {
-            "responsive": True,
-            "maintainAspectRatio": False,
-            "plugins": {"legend": {"display": True, "position": "top"}},
-            "scales": {
-                "x": {"type": "time", "time": {"unit": "day"}, "title": {"display": True, "text": "Date"}},
-                "y": {"title": {"display": True, "text": "Score"}}
-            },
-            "animation": False,
-            "elements": {"line": {"borderWidth": 4}},
-            "hover": {"mode": "nearest", "intersect": True}
-        }
-    }
-
-    html_code = f"""
-    <div style="height:450px;">
-        <canvas id="myChart"></canvas>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        const ctx = document.getElementById('myChart').getContext('2d');
-        const config = {json.dumps(config)};
-        new Chart(ctx, config);
-    </script>
-    """
-    st.components.v1.html(html_code, height=480)
-
-
 # --- Streamlit UI ---
 st.set_page_config(page_title="LinkedInowe Wariaty", page_icon="🎮")
 st.title("🎮 LinkedInowe Wariaty – Game Score Tracker")
 st.markdown("Track scores for Mikuś, Maciuś, and Patryk across Pinpoint, Queens, Crossclimb, and Tango!")
 
-# Session state
+# --- Session state ---
 if "progress_game" not in st.session_state: st.session_state.progress_game = "Pinpoint"
 if "progress_players" not in st.session_state: st.session_state.progress_players = PLAYERS
 if "debug_mode" not in st.session_state: st.session_state.debug_mode = False
@@ -206,34 +145,70 @@ with tab2:
     else:
         st.info("No scores yet.")
 
-# --- Progress Tab ---
+# --- Progress Tab (Plotly-based) ---
 with tab3:
     st.header("Game Progress")
+    
     col1, col2, col3 = st.columns([2,2,2])
     with col1:
-        progress_game = st.selectbox("Select Game", GAMES, index=GAMES.index("Pinpoint"), key="progress_game")
+        progress_game = st.selectbox("Select Game", GAMES, index=GAMES.index("Pinpoint"))
     with col2:
-        progress_players = st.multiselect("Select Players", PLAYERS, default=st.session_state.progress_players, key="progress_players")
+        progress_players = st.multiselect("Select Players", PLAYERS, default=PLAYERS)
     with col3:
         date_filter = st.selectbox("Date Range", ["Last 7 days","Last 30 days","All"], index=0)
 
+    # Fetch and filter data
     all_items = fetch_all()
     df_prog = pd.DataFrame(all_items)
-    if not df_prog.empty:
+    
+    if df_prog.empty:
+        st.info("No scores yet.")
+    else:
         df_prog["Date"] = pd.to_datetime(df_prog["game_date"].apply(lambda x: x.split("_")[1]))
         df_prog = df_prog[df_prog["raw_game"]==progress_game]
+        
         if date_filter=="Last 7 days":
-            df_prog = df_prog[df_prog["Date"] >= pd.Timestamp(datetime.utcnow().date()) - pd.Timedelta(days=7)]
+            df_prog = df_prog[df_prog["Date"] >= datetime.utcnow() - timedelta(days=7)]
         elif date_filter=="Last 30 days":
-            df_prog = df_prog[df_prog["Date"] >= pd.Timestamp(datetime.utcnow().date()) - pd.Timedelta(days=30)]
-        df_prog = df_prog[df_prog["user_id"].isin(progress_players)]
-    else:
-        df_prog = pd.DataFrame(columns=["user_id","Date","Score"])
+            df_prog = df_prog[df_prog["Date"] >= datetime.utcnow() - timedelta(days=30)]
 
-    if not progress_players:
-        st.info("Select at least one player")
-    else:
-        plot_chartjs(df_prog, progress_game, progress_players)
+        df_prog = df_prog[df_prog["user_id"].isin(progress_players)]
+
+        if df_prog.empty:
+            st.info(f"No scores for {progress_game} in selected players/date range.")
+        else:
+            import plotly.express as px
+            fig = px.line(
+                df_prog,
+                x="Date",
+                y="score",
+                color="user_id",
+                markers=True,
+                line_shape="spline",
+                labels={"score":"Score", "user_id":"Player"}
+            )
+            
+            # Custom colors
+            for trace in fig.data:
+                player_name = trace.name
+                trace.line.color = COLORS.get(player_name, "#ffffff")
+                trace.marker.color = COLORS.get(player_name, "#ffffff")
+                trace.line.width = 4
+                trace.marker.size = 8
+
+            fig.update_layout(
+                title=f"{progress_game} Progress",
+                xaxis_title="Date",
+                yaxis_title="Score",
+                template="plotly_dark",
+                font=dict(family="Arial", size=12),
+                plot_bgcolor="#1f1f1f",
+                paper_bgcolor="#1f1f1f",
+                legend=dict(font=dict(size=12)),
+                margin=dict(l=20, r=20, t=50, b=20)
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
 
 # --- Debug Tab ---
 with tab4:
