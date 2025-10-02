@@ -128,9 +128,7 @@ def plot_user(game: str, user: str):
     )
     fig.update_traces(
         line=dict(color="#00ff88", width=4),
-        marker=dict(size=8),
-        opacity=0,  # Start invisible for animation
-        transition=dict(duration=2000, easing="cubic-in-out")
+        marker=dict(size=8)
     )
     fig.update_layout(
         font=dict(family="Arial", size=12, color="#ffffff"),
@@ -142,11 +140,7 @@ def plot_user(game: str, user: str):
         showlegend=False,
         margin=dict(l=20, r=20, t=50, b=20),
         plot_bgcolor="#1f1f1f",
-        paper_bgcolor="#1f1f1f",
-        animations=[dict(
-            method="animate",
-            args=[[{"opacity": 1}], {"frame": {"duration": 2000, "redraw": True}, "fromcurrent": True, "mode": "immediate"}]
-        )]
+        paper_bgcolor="#1f1f1f"
     )
     return fig, df
 
