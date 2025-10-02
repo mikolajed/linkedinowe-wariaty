@@ -110,11 +110,11 @@ def fetch_all():
         st.error(f"Failed to fetch scores: {str(e)}. Check DynamoDB permissions.")
         return []
 
-# Plot game with pretty visuals
+# Plot game with animation
 def plot_game(game: str, selected_users: list):
     items = [i for i in fetch_all() if i["raw_game"].lower() == game.lower() and i["user_id"] in selected_users]
     if not items:
-        return None, [], {}
+        return None, pd.DataFrame(), {}, {"displayModeBar": False}
 
     df = pd.DataFrame(items)
     df["Date"] = df["game_date"].apply(lambda x: x.split("_")[1])
@@ -126,30 +126,66 @@ def plot_game(game: str, selected_users: list):
     import plotly.graph_objects as go
     fig = go.Figure()
 
+    # Frames for animation
+    frames = []
+    for step in range(1, len(df) + 1):
+        frame_data = []
+        for user in selected_users:
+            user_df = df[df["user_id"] == user].iloc[:step]
+            frame_data.append(go.Scatter(
+                x=user_df["Date"],
+                y=user_df["Score"],
+                mode="lines+markers",
+                name=user,
+                line=dict(color=COLORS.get(user, "#ffffff"), width=4, shape="spline"),
+                marker=dict(size=8, color=COLORS.get(user, "#ffffff"))
+            ))
+        frames.append(go.Frame(data=frame_data, name=str(step)))
+
+    # Initial empty traces
     for user in selected_users:
-        user_df = df[df["user_id"] == user]
         fig.add_trace(go.Scatter(
-            x=user_df["Date"],
-            y=user_df["Score"],
+            x=[], y=[],
             mode="lines+markers",
             name=user,
             line=dict(color=COLORS.get(user, "#ffffff"), width=4, shape="spline"),
             marker=dict(size=8, color=COLORS.get(user, "#ffffff"))
         ))
 
+    # Layout
     fig.update_layout(
         title=f"{game} Progress",
-        xaxis=dict(title="Date", showgrid=True, zeroline=False, showline=True, linecolor="white"),
-        yaxis=dict(title="Score", showgrid=True, zeroline=False, showline=True, linecolor="white"),
+        xaxis=dict(title="Date", showgrid=True, linecolor="white"),
+        yaxis=dict(title="Score", showgrid=True, linecolor="white"),
         plot_bgcolor="#1f1f1f",
         paper_bgcolor="#1f1f1f",
         font=dict(color="white"),
         legend=dict(title="Players"),
         margin=dict(l=40, r=20, t=60, b=40),
         hovermode="x unified",
-        transition=dict(duration=800, easing="cubic-in-out"),
-        showlegend=True
+        showlegend=True,
+        updatemenus=[{
+            "type": "buttons",
+            "showactive": False,
+            "buttons": [{
+                "label": "▶ Play",
+                "method": "animate",
+                "args": [None, {"frame": {"duration": 600, "redraw": True}, "fromcurrent": True, "mode": "immediate"}]
+            }]
+        }],
+        sliders=[{
+            "steps": [
+                {"args": [[str(k)], {"frame": {"duration": 600, "redraw": True}, "mode": "immediate"}],
+                 "label": str(k), "method": "animate"} for k in range(1, len(df) + 1)
+            ],
+            "x": 0.1, "y": -0.1, "len": 0.9
+        }]
     )
+
+    fig.frames = frames
+
+    # Auto-play on load
+    fig.update_layout(transition=dict(duration=500, easing="cubic-in-out"))
 
     config = {"displayModeBar": False}
     return fig, df[["user_id", "Date", "Score"]], debug_info, config
@@ -225,8 +261,8 @@ with tab3:
         st.info("Please select at least one player to show progress.")
     else:
         fig, df, debug_info, config = plot_game(progress_game, progress_players)
-        if fig:
-            if st.session_state.debug_mode:
+        if fig is not None:
+            if st.session_state.debug_mode and not df.empty:
                 st.write(f"**Debug**: Found {len(df)} scores for {progress_game}")
                 st.write(f"**Debug Data**: {debug_info}")
                 st.dataframe(df, use_container_width=True)
