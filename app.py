@@ -3,9 +3,7 @@ import boto3
 import re
 from datetime import datetime
 import pandas as pd
-import matplotlib.pyplot as plt
-from io import BytesIO
-import base64
+import plotly.express as px
 import os
 
 # Config/Secrets
@@ -90,20 +88,35 @@ def plot_user(game: str, user: str):
     if len(items) < 1:
         return None
     items.sort(key=lambda x: x["timestamp"])
-    dates = [i["game_date"].split("_")[1] for i in items]
-    scores = [i["score"] for i in items]
-    fig, ax = plt.subplots(figsize=(8,4))
-    ax.plot(dates, scores, marker="o", linestyle="-", color="b")
-    ax.set_title(f"{user}'s {game} Progress")
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Score")
-    ax.grid(True)
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    buf = BytesIO()
-    fig.savefig(buf, format="png")
-    buf.seek(0)
-    return base64.b64encode(buf.read()).decode()
+    df = pd.DataFrame({
+        "Date": [i["game_date"].split("_")[1] for i in items],
+        "Score": [i["score"] for i in items],
+        "Frame": range(len(items))  # For animation
+    })
+    fig = px.line(
+        df,
+        x="Date",
+        y="Score",
+        title=f"{user}'s {game} Progress",
+        markers=True,
+        template="plotly_dark",
+        animation_frame="Frame",
+        range_y=[min(df["Score"]) - 1, max(df["Score"]) + 1]
+    )
+    fig.update_traces(line=dict(color="#00ff88", width=3), marker=dict(size=10))
+    fig.update_layout(
+        font=dict(family="Arial", size=14, color="#ffffff"),
+        title_font_size=20,
+        xaxis_title="Date",
+        yaxis_title="Score",
+        xaxis=dict(tickangle=45, gridcolor="#444"),
+        yaxis=dict(gridcolor="#444"),
+        showlegend=False,
+        margin=dict(l=40, r=40, t=60, b=40),
+        plot_bgcolor="#1f1f1f",
+        paper_bgcolor="#1f1f1f"
+    )
+    return fig
 
 # UI
 st.set_page_config(page_title="LinkedInowe Wariaty", page_icon="🎮")
@@ -200,8 +213,8 @@ with tab3:
     with col2:
         progress_game = st.selectbox("Select Game", GAMES, key="progress_game")
     if st.button("Show Progress", key="show_progress"):
-        img_b64 = plot_user(progress_game, progress_player)
-        if img_b64:
-            st.image(f"data:image/png;base64,{img_b64}", caption=f"{progress_player}'s {progress_game} Progress")
+        fig = plot_user(progress_game, progress_player)
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
         else:
             st.info(f"No scores for {progress_player} in {progress_game}. Submit scores to see progress!")
