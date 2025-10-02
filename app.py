@@ -182,8 +182,16 @@ with tab2:
     items = fetch_all()
     df_all = pd.DataFrame(items)
     if not df_all.empty:
+        df_all = df_all.copy()
         df_all["Date"] = df_all["game_date"].apply(lambda x: x.split("_")[1])
-        df_all = df_all.rename(columns={"user_id":"Player","raw_game":"Game","score":"Score","metric":"Metric","game_date":"Date","timestamp":"Timestamp"})
+        df_all = df_all[["user_id","raw_game","score","metric","Date","timestamp"]]  # select only needed columns
+        df_all = df_all.rename(columns={
+            "user_id":"Player",
+            "raw_game":"Game",
+            "score":"Score",
+            "metric":"Metric",
+            "timestamp":"Timestamp"
+        })
         st.dataframe(df_all, use_container_width=True)
     else:
         st.info("No scores yet.")
