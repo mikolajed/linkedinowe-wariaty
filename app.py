@@ -104,32 +104,41 @@ def fetch_all():
         st.error(f"Failed to fetch scores: {str(e)}. Check DynamoDB permissions.")
         return []
 
-# Plot progress
-def plot_user(game: str, user: str):
-    items = [i for i in fetch_all() if i["raw_game"].lower() == game.lower() and i["user_id"] == user]
+# Plot progress for a game with multiple users
+def plot_game(game: str, selected_users: list):
+    items = [i for i in fetch_all() if i["raw_game"].lower() == game.lower() and i["user_id"] in selected_users]
     if not items:
         return None, []
-    items.sort(key=lambda x: x["timestamp"])
-    dates = [i["game_date"].split("_")[1] for i in items]
-    scores = [int(i["score"]) for i in items]  # Convert Decimal to int
-    df = pd.DataFrame({"Date": dates, "Score": scores, "Timestamp": [i["timestamp"] for i in items]})
+    
+    # Group by user and date
+    df = pd.DataFrame(items)
+    df["Date"] = df["game_date"].apply(lambda x: x.split("_")[1])
+    df["Score"] = df["score"].apply(int)  # Convert Decimal to int
+    df = df[["user_id", "Date", "Score", "timestamp"]].sort_values("timestamp")
     
     # Debug: Log data
-    st.write(f"**Debug**: Plotting {len(dates)} points: {dates}, {scores}")
+    debug_info = {user: df[df["user_id"] == user][["Date", "Score"]].to_dict() for user in selected_users}
+    st.write(f"**Debug**: Plotting {len(df)} points for {game}: {debug_info}")
     
     # Plotly graph
     fig = px.line(
         df,
         x="Date",
         y="Score",
-        title=f"{user}'s {game} Progress",
+        color="user_id",
+        title=f"{game} Progress for Selected Players",
         markers=True,
         template="plotly_dark"
     )
-    fig.update_traces(
-        line=dict(color="#00ff88", width=4),
-        marker=dict(size=8)
-    )
+    # Custom colors for users
+    colors = ["#00ff88", "#00cc77", "#00aa66"]  # Neon green shades
+    for i, user in enumerate(selected_users):
+        if user in df["user_id"].values:
+            fig.update_traces(
+                selector=dict(name=user),
+                line=dict(color=colors[i % len(colors)], width=4),
+                marker=dict(size=8)
+            )
     fig.update_layout(
         font=dict(family="Arial", size=12, color="#ffffff"),
         title_font_size=20,
@@ -137,12 +146,13 @@ def plot_user(game: str, user: str):
         yaxis_title="",
         xaxis=dict(ticks="", tickfont=dict(size=12), showgrid=False),
         yaxis=dict(ticks="", tickfont=dict(size=12), showgrid=False),
-        showlegend=False,
+        showlegend=True,  # Show legend for users
+        legend=dict(font=dict(size=12, color="#ffffff")),
         margin=dict(l=20, r=20, t=50, b=20),
         plot_bgcolor="#1f1f1f",
         paper_bgcolor="#1f1f1f"
     )
-    return fig, df
+    return fig, df[["user_id", "Date", "Score"]]
 
 # UI
 st.set_page_config(page_title="LinkedInowe Wariaty", page_icon="🎮")
@@ -242,17 +252,20 @@ with tab2:
 
 with tab3:
     # Progress tab
-    st.header("My Progress")
+    st.header("Game Progress")
     col1, col2 = st.columns(2)
     with col1:
-        progress_player = st.selectbox("Select Player", PLAYERS, key="progress_player")
+        progress_game = st.selectbox("Select Game", GAMES, index=GAMES.index("Pinpoint"), key="progress_game")
     with col2:
-        progress_game = st.selectbox("Select Game", GAMES, key="progress_game")
+        progress_players = st.multiselect("Select Players", PLAYERS, default=PLAYERS, key="progress_players")
     if st.button("Show Progress", key="show_progress"):
-        fig, df = plot_user(progress_game, progress_player)
-        if fig:
-            st.write(f"**Debug**: Found {len(df)} scores for {progress_player} in {progress_game}")
-            st.dataframe(df[["Date", "Score"]], use_container_width=True)
-            st.plotly_chart(fig, use_container_width=True)
+        if not progress_players:
+            st.info("Please select at least one player to show progress.")
         else:
-            st.info(f"No scores for {progress_player} in {progress_game}. Use 'Add Test Data' in Submit Score tab to add scores.")
+            fig, df = plot_game(progress_game, progress_players)
+            if fig:
+                st.write(f"**Debug**: Found {len(df)} scores for {progress_game} across {len(progress_players)} players")
+                st.dataframe(df, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info(f"No scores for {progress_game} for selected players. Use 'Add Test Data' in Submit Score tab to add scores.")
