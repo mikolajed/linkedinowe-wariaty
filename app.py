@@ -104,12 +104,15 @@ def plot_chartjs(df: pd.DataFrame, game: str, players: list):
         st.info(f"No data for {game} for selected players.")
         return
 
+    if "Date" not in df.columns:
+        df["Date"] = pd.to_datetime(df["game_date"].apply(lambda x: x.split("_")[1]))
+
     datasets = []
     for player in players:
         player_df = df[df["user_id"] == player].sort_values("Date")
         datasets.append({
             "label": player,
-            "data": [{"x": str(d.date()), "y": int(s)} for d, s in zip(player_df["Date"], player_df["Score"])],
+            "data": [{"x": str(d.date()), "y": int(s)} for d, s in zip(player_df["Date"], player_df["score"])],
             "borderColor": COLORS.get(player, "#ffffff"),
             "backgroundColor": COLORS.get(player, "#ffffff"),
             "fill": False,
@@ -145,6 +148,7 @@ def plot_chartjs(df: pd.DataFrame, game: str, players: list):
     </script>
     """
     st.components.v1.html(html_code, height=450)
+
 
 # --- Streamlit UI ---
 st.set_page_config(page_title="LinkedInowe Wariaty", page_icon="🎮")
