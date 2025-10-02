@@ -119,11 +119,11 @@ def plot_game(game: str, selected_users: list, date_filter: str):
     df = df[["user_id", "Date", "Score", "timestamp"]].sort_values("Date")
 
     # Apply date filter
-    today = datetime.utcnow().date()
+    today = pd.Timestamp(datetime.utcnow().date())
     if date_filter == "Last 7 days":
-        df = df[df["Date"] >= (today - timedelta(days=7))]
+        df = df[df["Date"] >= (today - pd.Timedelta(days=7))]
     elif date_filter == "Last 30 days":
-        df = df[df["Date"] >= (today - timedelta(days=30))]
+        df = df[df["Date"] >= (today - pd.Timedelta(days=30))]
 
     if df.empty:
         return None, df, {}, {"displayModeBar": False}
