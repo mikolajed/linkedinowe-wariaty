@@ -118,7 +118,7 @@ def plot_game(game: str, selected_users: list, date_filter: str):
     df["Score"] = df["score"].astype(int)
     df = df[["user_id", "Date", "Score", "timestamp"]].sort_values("Date")
 
-    # Apply date filter
+    # Date filter
     today = pd.Timestamp(datetime.utcnow().date())
     if date_filter == "Last 7 days":
         df = df[df["Date"] >= (today - pd.Timedelta(days=7))]
@@ -132,7 +132,7 @@ def plot_game(game: str, selected_users: list, date_filter: str):
 
     fig = go.Figure()
 
-    # Step 1: Markers-only traces (all points visible instantly)
+    # Base: all points visible
     for user in selected_users:
         user_df = df[df["user_id"] == user]
         fig.add_trace(go.Scatter(
@@ -143,9 +143,9 @@ def plot_game(game: str, selected_users: list, date_filter: str):
             marker=dict(size=8, color=COLORS.get(user, "#ffffff"))
         ))
 
-    # Step 2: Animate line traces progressively
+    # Frames: draw lines progressively
     frames = []
-    max_steps = len(df)
+    max_steps = df["Date"].nunique()  # one frame per date
     for step in range(1, max_steps + 1):
         frame_data = []
         for user in selected_users:
@@ -153,15 +153,16 @@ def plot_game(game: str, selected_users: list, date_filter: str):
             frame_data.append(go.Scatter(
                 x=user_df["Date"],
                 y=user_df["Score"],
-                mode="lines",
+                mode="lines+markers",
                 line=dict(color=COLORS.get(user, "#ffffff"), width=4, shape="spline"),
-                showlegend=False  # hide legends for line frames
+                marker=dict(size=0),  # hide markers in animation (already drawn)
+                showlegend=False
             ))
         frames.append(go.Frame(data=frame_data, name=str(step)))
 
     fig.frames = frames
 
-    # Layout with autoplay button
+    # Layout with auto-play animation
     fig.update_layout(
         title=f"{game} Progress",
         xaxis=dict(title="Date", showgrid=True, linecolor="white"),
@@ -172,20 +173,17 @@ def plot_game(game: str, selected_users: list, date_filter: str):
         legend=dict(title="Players"),
         margin=dict(l=40, r=20, t=60, b=40),
         hovermode="x unified",
-        updatemenus=[{
-            "type": "buttons",
-            "showactive": False,
-            "x": 0.05, "y": -0.15,
-            "buttons": [{
-                "label": "▶ Play",
-                "method": "animate",
-                "args": [None, {"frame": {"duration": 500, "redraw": True}, "fromcurrent": True, "mode": "immediate"}]
-            }]
-        }]
+        showlegend=True
     )
 
+    # Configure animation
     config = {"displayModeBar": False}
+    fig.update(frames=frames)
+    fig.update_layout(updatemenus=[dict(type="buttons", showactive=False, buttons=[dict(label="Play",
+        method="animate", args=[None, {"frame": {"duration": 500, "redraw": True}, "fromcurrent": True, "mode": "immediate", "transition": {"duration": 0}}])])])
+
     return fig, df[["user_id", "Date", "Score"]], debug_info, config
+
 
 # UI
 st.set_page_config(page_title="LinkedInowe Wariaty", page_icon="🎮")
