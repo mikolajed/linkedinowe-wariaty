@@ -68,24 +68,60 @@ def show():
         color="user_id",
         markers=True,
         line_shape="spline",
-        color_discrete_map=COLORS
+        color_discrete_map=COLORS,
+        template='plotly_white'  # Start with a clean template
     )
 
     # Update line and marker styles
     fig.update_traces(
         line=dict(width=3),
-        marker=dict(size=8)
+        marker=dict(size=8),
+        hovertemplate='Date: %{x|%Y-%m-%d}<br>Score: %{y}<extra></extra>'
     )
+
+    # Get theme colors from Streamlit
+    is_dark = st.get_option("theme.base") == "dark"
+    bg_color = 'rgba(0,0,0,0.8)' if is_dark else 'rgba(255,255,255,0.9)'
+    grid_color = 'rgba(255,255,255,0.1)' if is_dark else 'rgba(0,0,0,0.1)'
+    text_color = '#FFFFFF' if is_dark else '#000000'
 
     # Layout customization
     fig.update_layout(
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
-        xaxis=dict(showgrid=True, title="Date"),
-        yaxis=dict(showgrid=True, title="Score"),
-        legend=dict(title="Player"),
-        margin=dict(l=20, r=20, t=40, b=20),
-        hovermode='x unified'
+        xaxis=dict(
+            showgrid=True,
+            title="Date",
+            tickformat='%b %d',  # Format as 'Oct 02'
+            tickangle=-45,       # Angle the dates for better readability
+            gridcolor=grid_color,
+            title_standoff=20,   # Add space between axis and title
+            showline=True,
+            linecolor=grid_color,
+            ticks='outside'
+        ),
+        yaxis=dict(
+            showgrid=True,
+            title="Score",
+            gridcolor=grid_color,
+            title_standoff=20,   # Add space between axis and title
+            showline=True,
+            linecolor=grid_color,
+            ticks='outside'
+        ),
+        legend=dict(
+            title=dict(text="Player"),
+            bgcolor=bg_color,
+            bordercolor=grid_color,
+            borderwidth=1
+        ),
+        margin=dict(l=60, r=20, t=40, b=80),  # Increased left and bottom margins
+        hovermode='x unified',
+        hoverlabel=dict(
+            bgcolor=bg_color,
+            font_size=12,
+            font_color=text_color
+        )
     )
 
     # Display the chart with theme support
