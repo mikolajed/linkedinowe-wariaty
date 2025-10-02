@@ -2,9 +2,7 @@ import streamlit as st
 import boto3
 import re
 from datetime import datetime
-import matplotlib.pyplot as plt
-from io import BytesIO
-import base64
+import pandas as pd
 import os
 
 # Config/Secrets
@@ -77,35 +75,11 @@ def save_score(user: str, parsed: dict):
 
 # Fetch all
 def fetch_all():
-    return table.scan().get("Items", [])
-
-# Leaderboard
-def leaderboard(game: str):
-    items = [i for i in fetch_all() if i["raw_game"].lower() == game.lower()]
-    if not items:
-        return f"No scores yet for {game}."
-    reverse = game == "Tango"
-    items.sort(key=lambda x: x["score"], reverse=reverse)
-    return "\n".join(f"**{i['user_id']}** – {i['score']} {i['metric']} ({i['game_date'].split('_')[1]})" for i in items)
-
-# Plot graph
-def plot_user(game: str, user: str):
-    items = [i for i in fetch_all() if i["raw_game"].lower() == game.lower() and i["user_id"] == user]
-    if len(items) < 2:
-        return None
-    items.sort(key=lambda x: x["timestamp"])
-    dates = [i["game_date"].split("_")[1] for i in items]
-    scores = [i["score"] for i in items]
-    fig, ax = plt.subplots(figsize=(6,3))
-    ax.plot(dates, scores, marker="o")
-    ax.set_title(f"{user} – {game} over time")
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Score")
-    plt.tight_layout()
-    buf = BytesIO()
-    fig.savefig(buf, format="png")
-    buf.seek(0)
-    return base64.b64encode(buf.read()).decode()
+    try:
+        return table.scan().get("Items", [])
+    except Exception as e:
+        st.error(f"Failed to fetch scores: {str(e)}. Check DynamoDB permissions.")
+        return []
 
 # UI
 st.set_page_config(page_title="LinkedInowe Wariaty", page_icon="🎮")
@@ -163,18 +137,27 @@ if st.button("Save Score", key="save_score"):
         except ValueError as e:
             st.error(str(e))
 
-# Leaderboards
-st.header("🏆 Leaderboards")
-for game in GAMES:
-    with st.expander(f"{game} Leaderboard", expanded=False):
-        st.markdown(leaderboard(game), unsafe_allow_html=True)
+# All entries with filtering
+st.header("📋 All Scores")
+with st.form("filter_form"):
+    col1, col2 = st.columns(2)
+    with col1:
+        filter_player = st.selectbox("Filter by Player", ["All"] + PLAYERS, index=0)
+    with col2:
+        filter_game = st.selectbox("Filter by Game", ["All"] + GAMES, index=0)
+    filter_button = st.form_submit_button("Apply Filters")
 
-# Progress graph
-st.header("📈 My Progress")
-game_choice = st.selectbox("Select Game for Graph", GAMES, key="graph_select")
-if st.button("Show Graph", key="show_graph"):
-    img_b64 = plot_user(game_choice, user_id)
-    if img_b64:
-        st.image(f"data:image/png;base64,{img_b64}", caption=f"{user_id}'s {game_choice} Progress")
-    else:
-        st.info(f"Need at least 2 {game_choice} scores for {user_id} to plot a graph.")
+items = fetch_all()
+if filter_player != "All":
+    items = [i for i in items if i["user_id"] == filter_player]
+if filter_game != "All":
+    items = [i for i in items if i["raw_game"] == filter_game]
+
+if items:
+    df = pd.DataFrame(items)[["user_id", "raw_game", "score", "metric", "game_date", "timestamp"]]
+    df["game_date"] = df["game_date"].apply(lambda x: x.split("_")[1])
+    df = df.rename(columns={"user_id": "Player", "raw_game": "Game", "score": "Score", "metric": "Metric", "game_date": "Date", "timestamp": "Timestamp"})
+    df = df.sort_values("Timestamp", ascending=False)
+    st.dataframe(df, use_container_width=True)
+else:
+    st.info("No scores match the filters.")
