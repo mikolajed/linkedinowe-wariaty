@@ -1,0 +1,43 @@
+# Python virtual environments
+venv/
+.venv/
+env/
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Streamlit secrets and config
+.streamlit/secrets.toml  # Comment out if you want to commit a template version
+.streamlit/config.toml
+
+# AWS credentials (never commit these!)
+*.pem
+*.key
+credentials
+config
+.aws/
+
+# Logs and temp files
+*.log
+*.tmp
+.DS_Store  # macOS junk
+Thumbs.db  # Windows junk
+
+# Dependencies (if using pipenv or poetry)
+Pipfile.lock
+poetry.lock
+
+# Editor/IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Other common ignores
+node_modules/  # If you add JS later
+dist/
+build/
