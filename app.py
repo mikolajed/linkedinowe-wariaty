@@ -42,6 +42,7 @@ table = get_ddb_table()
 # Hardcoded Players and Games
 PLAYERS = ["Mikuś", "Maciuś", "Patryk"]
 GAMES = ["Pinpoint", "Queens", "Crossclimb", "Tango"]
+COLORS = {"Mikuś": "#00ff88", "Maciuś": "#0077ff", "Patryk": "#cc00ff"}  # Neon green, blue, purple
 
 # Parsing Logic
 def parse_post(text: str):
@@ -131,12 +132,11 @@ def plot_game(game: str, selected_users: list):
         template="plotly_dark"
     )
     # Custom colors for users
-    colors = ["#00ff88", "#00cc77", "#00aa66"]  # Neon green shades
-    for i, user in enumerate(selected_users):
+    for user in selected_users:
         if user in df["user_id"].values:
             fig.update_traces(
                 selector=dict(name=user),
-                line=dict(color=colors[i % len(colors)], width=4),
+                line=dict(color=COLORS.get(user, "#ffffff"), width=4),
                 marker=dict(size=8)
             )
     fig.update_layout(
@@ -146,7 +146,7 @@ def plot_game(game: str, selected_users: list):
         yaxis_title="",
         xaxis=dict(ticks="", tickfont=dict(size=12), showgrid=False),
         yaxis=dict(ticks="", tickfont=dict(size=12), showgrid=False),
-        showlegend=True,  # Show legend for users
+        showlegend=True,
         legend=dict(font=dict(size=12, color="#ffffff")),
         margin=dict(l=20, r=20, t=50, b=20),
         plot_bgcolor="#1f1f1f",
@@ -158,6 +158,12 @@ def plot_game(game: str, selected_users: list):
 st.set_page_config(page_title="LinkedInowe Wariaty", page_icon="🎮")
 st.title("🎮 LinkedInowe Wariaty – Game Score Tracker")
 st.markdown("Track scores for Mikuś, Maciuś, and Patryk across Pinpoint, Queens, Crossclimb, and more!")
+
+# Initialize session state
+if "progress_game" not in st.session_state:
+    st.session_state.progress_game = "Pinpoint"
+if "progress_players" not in st.session_state:
+    st.session_state.progress_players = PLAYERS
 
 # Tabs
 tab1, tab2, tab3 = st.tabs(["📝 Submit Score", "📋 All Scores", "📈 Progress"])
@@ -255,17 +261,29 @@ with tab3:
     st.header("Game Progress")
     col1, col2 = st.columns(2)
     with col1:
-        progress_game = st.selectbox("Select Game", GAMES, index=GAMES.index("Pinpoint"), key="progress_game")
+        progress_game = st.selectbox(
+            "Select Game",
+            GAMES,
+            index=GAMES.index("Pinpoint"),
+            key="progress_game",
+            on_change=lambda: st.session_state.update(progress_game=st.session_state.progress_game)
+        )
     with col2:
-        progress_players = st.multiselect("Select Players", PLAYERS, default=PLAYERS, key="progress_players")
-    if st.button("Show Progress", key="show_progress"):
-        if not progress_players:
-            st.info("Please select at least one player to show progress.")
+        progress_players = st.multiselect(
+            "Select Players",
+            PLAYERS,
+            default=st.session_state.progress_players,
+            key="progress_players",
+            on_change=lambda: st.session_state.update(progress_players=st.session_state.progress_players)
+        )
+
+    if not progress_players:
+        st.info("Please select at least one player to show progress.")
+    else:
+        fig, df = plot_game(progress_game, progress_players)
+        if fig:
+            st.write(f"**Debug**: Found {len(df)} scores for {progress_game} across {len(progress_players)} players")
+            st.dataframe(df, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True)
         else:
-            fig, df = plot_game(progress_game, progress_players)
-            if fig:
-                st.write(f"**Debug**: Found {len(df)} scores for {progress_game} across {len(progress_players)} players")
-                st.dataframe(df, use_container_width=True)
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info(f"No scores for {progress_game} for selected players. Use 'Add Test Data' in Submit Score tab to add scores.")
+            st.info(f"No scores for {progress_game} for selected players. Use 'Add Test Data' in Submit Score tab to add scores.")
