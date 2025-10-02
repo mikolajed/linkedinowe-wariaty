@@ -119,7 +119,6 @@ def plot_game(game: str, selected_users: list):
     
     # Debug: Log data
     debug_info = {user: df[df["user_id"] == user][["Date", "Score"]].to_dict() for user in selected_users}
-    st.write(f"**Debug**: Plotting {len(df)} points for {game}: {debug_info}")
     
     # Plotly graph with spline interpolation and markers
     fig = px.line(
@@ -153,7 +152,7 @@ def plot_game(game: str, selected_users: list):
         plot_bgcolor="#1f1f1f",
         paper_bgcolor="#1f1f1f"
     )
-    return fig, df[["user_id", "Date", "Score"]]
+    return fig, df[["user_id", "Date", "Score"]], debug_info
 
 # UI
 st.set_page_config(page_title="LinkedInowe Wariaty", page_icon="🎮")
@@ -165,6 +164,8 @@ if "progress_game" not in st.session_state:
     st.session_state.progress_game = "Pinpoint"
 if "progress_players" not in st.session_state:
     st.session_state.progress_players = PLAYERS
+if "debug_mode" not in st.session_state:
+    st.session_state.debug_mode = False
 
 # Tabs
 tab1, tab2, tab3 = st.tabs(["📝 Submit Score", "📋 All Scores", "📈 Progress"])
@@ -260,7 +261,7 @@ with tab2:
 with tab3:
     # Progress tab
     st.header("Game Progress")
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns([2, 2, 1])
     with col1:
         progress_game = st.selectbox(
             "Select Game",
@@ -277,14 +278,23 @@ with tab3:
             key="progress_players",
             on_change=lambda: st.session_state.update(progress_players=st.session_state.progress_players)
         )
+    with col3:
+        debug_mode = st.checkbox(
+            "Debug Mode",
+            value=st.session_state.debug_mode,
+            key="debug_mode",
+            on_change=lambda: st.session_state.update(debug_mode=st.session_state.debug_mode)
+        )
 
     if not progress_players:
         st.info("Please select at least one player to show progress.")
     else:
-        fig, df = plot_game(progress_game, progress_players)
+        fig, df, debug_info = plot_game(progress_game, progress_players)
         if fig:
-            st.write(f"**Debug**: Found {len(df)} scores for {progress_game} across {len(progress_players)} players")
-            st.dataframe(df, use_container_width=True)
+            if debug_mode:
+                st.write(f"**Debug**: Found {len(df)} scores for {progress_game} across {len(progress_players)} players")
+                st.write(f"**Debug Data**: {debug_info}")
+                st.dataframe(df, use_container_width=True)
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info(f"No scores for {progress_game} for selected players. Use 'Add Test Data' in Submit Score tab to add scores.")
