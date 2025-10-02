@@ -81,9 +81,10 @@ def show():
 
     # Get theme colors from Streamlit
     is_dark = st.get_option("theme.base") == "dark"
-    bg_color = 'rgba(0,0,0,0.8)' if is_dark else 'rgba(255,255,255,0.9)'
+    bg_color = 'rgba(0,0,0,0.9)' if is_dark else 'rgba(255,255,255,0.95)'
     grid_color = 'rgba(255,255,255,0.1)' if is_dark else 'rgba(0,0,0,0.1)'
     text_color = '#FFFFFF' if is_dark else '#000000'
+    legend_text_color = '#FFFFFF' if is_dark else '#000000'  # Explicit legend text color
 
     # Layout customization
     fig.update_layout(
@@ -110,10 +111,25 @@ def show():
             ticks='outside'
         ),
         legend=dict(
-            title=dict(text="Player"),
+            title=dict(
+                text="Player",
+                font=dict(
+                    color=legend_text_color,
+                    size=12
+                )
+            ),
+            font=dict(
+                color=legend_text_color,
+                size=11
+            ),
             bgcolor=bg_color,
             bordercolor=grid_color,
-            borderwidth=1
+            borderwidth=1,
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01,
+            itemsizing='constant'
         ),
         margin=dict(l=60, r=20, t=40, b=80),  # Increased left and bottom margins
         hovermode='x unified',
