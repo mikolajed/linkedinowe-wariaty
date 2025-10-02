@@ -3,9 +3,9 @@ import boto3
 import re
 from datetime import datetime, timedelta
 import pandas as pd
-import plotly.express as px
 import random
 import os
+import streamlit.components.v1 as components
 
 # Config/Secrets
 try:
@@ -110,35 +110,66 @@ def plot_user(game: str, user: str):
     if len(items) < 1:
         return None
     items.sort(key=lambda x: x["timestamp"])
-    df = pd.DataFrame({
-        "Date": [i["game_date"].split("_")[1] for i in items],
-        "Score": [i["score"] for i in items],
-        "Frame": range(len(items))  # For animation
-    })
-    fig = px.line(
-        df,
-        x="Date",
-        y="Score",
-        title=f"{user}'s {game} Progress",
-        markers=True,
-        template="plotly_dark",
-        animation_frame="Frame",
-        range_y=[min(df["Score"]) - 1, max(df["Score"]) + 1]
-    )
-    fig.update_traces(line=dict(color="#00ff88", width=3), marker=dict(size=10))
-    fig.update_layout(
-        font=dict(family="Arial", size=14, color="#ffffff"),
-        title_font_size=20,
-        xaxis_title="Date",
-        yaxis_title="Score",
-        xaxis=dict(tickangle=45, gridcolor="#444"),
-        yaxis=dict(gridcolor="#444"),
-        showlegend=False,
-        margin=dict(l=40, r=40, t=60, b=40),
-        plot_bgcolor="#1f1f1f",
-        paper_bgcolor="#1f1f1f"
-    )
-    return fig
+    dates = [i["game_date"].split("_")[1] for i in items]
+    scores = [i["score"] for i in items]
+    # Chart.js HTML
+    chart_id = f"chart_{user}_{game}".replace(" ", "_")
+    html = f"""
+    <canvas id="{chart_id}" style="max-height: 400px;"></canvas>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.min.js"></script>
+    <script>
+    const ctx = document.getElementById('{chart_id}').getContext('2d');
+    new Chart(ctx, {{
+        type: 'line',
+        data: {{
+            labels: {dates},
+            datasets: [{{
+                label: '',
+                data: {scores},
+                borderColor: '#00ff88',
+                borderWidth: 4,
+                pointBackgroundColor: '#00ff88',
+                pointRadius: 6,
+                pointHoverRadius: 8,
+                fill: false,
+                tension: 0.4
+            }}]
+        }},
+        options: {{
+            animation: {{
+                duration: 2000,
+                easing: 'easeInOutQuad',
+                x: {{ duration: 2000, from: 0 }}
+            }},
+            plugins: {{
+                legend: {{ display: false }},
+                title: {{
+                    display: true,
+                    text: "{user}'s {game} Progress",
+                    color: '#ffffff',
+                    font: {{ size: 20, family: 'Arial' }}
+                }}
+            }},
+            scales: {{
+                x: {{
+                    display: true,
+                    ticks: {{ color: '#cccccc', font: {{ size: 12 }} }},
+                    grid: {{ display: false }}
+                }},
+                y: {{
+                    display: true,
+                    ticks: {{ color: '#cccccc', font: {{ size: 12 }} }},
+                    grid: {{ display: false }},
+                    beginAtZero: false
+                }}
+            }},
+            layout: {{ padding: 20 }},
+            maintainAspectRatio: false
+        }}
+    }});
+    </script>
+    """
+    return html
 
 # UI
 st.set_page_config(page_title="LinkedInowe Wariaty", page_icon="🎮")
@@ -245,8 +276,8 @@ with tab3:
     with col2:
         progress_game = st.selectbox("Select Game", GAMES, key="progress_game")
     if st.button("Show Progress", key="show_progress"):
-        fig = plot_user(progress_game, progress_player)
-        if fig:
-            st.plotly_chart(fig, use_container_width=True)
+        html = plot_user(progress_game, progress_player)
+        if html:
+            components.html(html, height=450)
         else:
             st.info(f"No scores for {progress_player} in {progress_game}. Submit scores to see progress!")
