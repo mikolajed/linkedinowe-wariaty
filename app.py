@@ -4,8 +4,7 @@ import re
 from datetime import datetime, timedelta
 import pandas as pd
 import random
-import os
-import plotly.graph_objects as go
+import json
 
 # Config/Secrets
 try:
@@ -36,7 +35,7 @@ def get_ddb_table():
                     self.data = [i for i in self.data if not (i.get('user_id') == Key['user_id'] and i.get('game_date') == Key['game_date'])]
             return MockTable()
     except Exception as e:
-        st.error(f"DynamoDB error: {str(e)}. Check credentials and table 'game-scores'.")
+        st.error(f"DynamoDB error: {str(e)}.")
         st.stop()
 
 table = get_ddb_table()
@@ -50,19 +49,15 @@ COLORS = {"Mikuś": "#00ff88", "Maciuś": "#0077ff", "Patryk": "#cc00ff"}
 def parse_post(text: str):
     text = text.strip()
     m = re.search(r"Pinpoint #\d+ \|\s*(\d+)\s*guesses", text, re.IGNORECASE)
-    if m:
-        return {"game": "Pinpoint", "score": int(m.group(1)), "metric": "guesses (lower better)"}
+    if m: return {"game": "Pinpoint", "score": int(m.group(1)), "metric": "guesses (lower better)"}
     m = re.search(r"Queens #\d+ \|\s*([\d:]+)", text, re.IGNORECASE)
     if m:
-        time_str = m.group(1)
-        mins, secs = map(int, time_str.split(":"))
+        mins, secs = map(int, m.group(1).split(":"))
         return {"game": "Queens", "score": mins*60 + secs, "metric": "seconds (lower better)"}
     m = re.search(r"Crossclimb #\d+ \|\s*(\d+)\s*clues", text, re.IGNORECASE)
-    if m:
-        return {"game": "Crossclimb", "score": int(m.group(1)), "metric": "clues (lower better)"}
+    if m: return {"game": "Crossclimb", "score": int(m.group(1)), "metric": "clues (lower better)"}
     m = re.search(r"Tango #\d+ \|\s*(\d+)\s*points", text, re.IGNORECASE)
-    if m:
-        return {"game": "Tango", "score": int(m.group(1)), "metric": "points (higher better)"}
+    if m: return {"game": "Tango", "score": int(m.group(1)), "metric": "points (higher better)"}
     raise ValueError("Could not detect a supported game pattern. Supported games: " + ", ".join(GAMES))
 
 # Save to DynamoDB
@@ -92,11 +87,7 @@ def generate_test_data(user: str, game: str = "Pinpoint"):
             "timestamp": (datetime.utcnow() - timedelta(days=i)).replace(hour=12, minute=0, second=0).isoformat(),
             "raw_game": game,
         }
-        try:
-            table.put_item(Item=item)
-        except Exception as e:
-            st.error(f"Failed to add test data for {date}: {str(e)}")
-            return False
+        table.put_item(Item=item)
     return True
 
 # Fetch all
@@ -107,94 +98,53 @@ def fetch_all():
         st.error(f"Failed to fetch scores: {str(e)}.")
         return []
 
-# Plot progress
-def plot_game(game: str, selected_users: list, date_filter: str):
-    items = [i for i in fetch_all() if i["raw_game"].lower() == game.lower() and i["user_id"] in selected_users]
-    if not items:
-        return None, pd.DataFrame(), {}, {"displayModeBar": False}
-
-    df = pd.DataFrame(items)
-    df["Date"] = pd.to_datetime(df["game_date"].apply(lambda x: x.split("_")[1]))
-    df["Score"] = df["score"].astype(int)
-    df = df[["user_id", "Date", "Score"]].sort_values("Date")
-
-    today = pd.Timestamp(datetime.utcnow().date())
-    if date_filter == "Last 7 days":
-        df = df[df["Date"] >= (today - pd.Timedelta(days=7))]
-    elif date_filter == "Last 30 days":
-        df = df[df["Date"] >= (today - pd.Timedelta(days=30))]
-
+# Chart.js plot
+def plot_chartjs(df: pd.DataFrame, game: str, players: list):
     if df.empty:
-        return None, df, {}, {"displayModeBar": False}
+        st.info(f"No data for {game} for selected players.")
+        return
 
-    debug_info = {user: df[df["user_id"] == user][["Date", "Score"]].to_dict() for user in selected_users}
+    datasets = []
+    for player in players:
+        player_df = df[df["user_id"] == player].sort_values("Date")
+        datasets.append({
+            "label": player,
+            "data": [{"x": str(d.date()), "y": int(s)} for d, s in zip(player_df["Date"], player_df["Score"])],
+            "borderColor": COLORS.get(player, "#ffffff"),
+            "backgroundColor": COLORS.get(player, "#ffffff"),
+            "fill": False,
+            "tension": 0.4,
+            "pointRadius": 5,
+            "pointHoverRadius": 7
+        })
 
-    fig = go.Figure()
+    config = {
+        "type": "line",
+        "data": {"datasets": datasets},
+        "options": {
+            "responsive": True,
+            "maintainAspectRatio": False,
+            "plugins": {"legend": {"display": True, "position": "top"}},
+            "scales": {
+                "x": {"type": "time", "time": {"unit": "day"}, "title": {"display": True, "text": "Date"}},
+                "y": {"title": {"display": True, "text": "Score"}}
+            },
+            "animation": {"duration": 2000, "easing": "easeOutQuart"},
+            "elements": {"line": {"borderWidth": 4}},
+            "hover": {"mode": "nearest", "intersect": True}
+        }
+    }
 
-    # Base: all points visible
-    for user in selected_users:
-        user_df = df[df["user_id"] == user]
-        fig.add_trace(go.Scatter(
-            x=user_df["Date"],
-            y=user_df["Score"],
-            mode="lines+markers",
-            line=dict(color=COLORS.get(user, "#ffffff"), width=4, shape="spline"),
-            marker=dict(size=8, color=COLORS.get(user, "#ffffff")),
-            name=user
-        ))
-
-    # Frames: interpolate points for “growing line” effect
-    frames = []
-    steps = 30  # number of animation steps
-    for step in range(1, steps+1):
-        frame_data = []
-        for user in selected_users:
-            user_df = df[df["user_id"] == user]
-            x = user_df["Date"]
-            y = user_df["Score"]
-            idx = max(1, int(len(x) * step / steps))
-            frame_data.append(go.Scatter(
-                x=x.iloc[:idx],
-                y=y.iloc[:idx],
-                mode="lines",
-                line=dict(color=COLORS.get(user, "#ffffff"), width=4, shape="spline"),
-                showlegend=False,
-                marker=dict(size=0)
-            ))
-        frames.append(go.Frame(data=frame_data))
-
-    fig.frames = frames
-
-    # Autoplay animation
-    fig.update_layout(
-        xaxis=dict(title="Date", showgrid=True, linecolor="white"),
-        yaxis=dict(title="Score", showgrid=True, linecolor="white"),
-        plot_bgcolor="#1f1f1f",
-        paper_bgcolor="#1f1f1f",
-        font=dict(color="white"),
-        legend=dict(title="Players"),
-        hovermode="x unified",
-        margin=dict(l=40, r=20, t=60, b=40),
-        showlegend=True,
-        updatemenus=[{
-            "type": "buttons",
-            "showactive": False,
-            "buttons": [{
-                "label": "Play",
-                "method": "animate",
-                "args": [None, {
-                    "frame": {"duration": 50, "redraw": True},
-                    "fromcurrent": True,
-                    "mode": "immediate"
-                }]
-            }]
-        }]
-    )
-
-    config = {"displayModeBar": False}
-
-    return fig, df[["user_id", "Date", "Score"]], debug_info, config
-
+    html_code = f"""
+    <canvas id="myChart" style="width:100%;height:400px;"></canvas>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const ctx = document.getElementById('myChart').getContext('2d');
+        const config = {json.dumps(config)};
+        new Chart(ctx, config);
+    </script>
+    """
+    st.components.v1.html(html_code, height=450)
 
 # UI
 st.set_page_config(page_title="LinkedInowe Wariaty", page_icon="🎮")
@@ -209,7 +159,6 @@ if "progress_players" not in st.session_state:
 if "debug_mode" not in st.session_state:
     st.session_state.debug_mode = False
 
-# Tabs
 tab1, tab2, tab3, tab4 = st.tabs(["📝 Submit Score", "📋 All Scores", "📈 Progress", "⚙️ Debug"])
 
 with tab1:
@@ -230,95 +179,47 @@ with tab1:
 
 with tab2:
     st.header("All Scores")
-    with st.form("filter_form"):
-        col1, col2 = st.columns(2)
-        with col1:
-            filter_player = st.selectbox("Filter by Player", ["All"] + PLAYERS, index=0)
-        with col2:
-            filter_game = st.selectbox("Filter by Game", ["All"] + GAMES, index=0)
-        filter_button = st.form_submit_button("Apply Filters")
-
     items = fetch_all()
-    if filter_player != "All":
-        items = [i for i in items if i["user_id"] == filter_player]
-    if filter_game != "All":
-        items = [i for i in items if i["raw_game"] == filter_game]
-
-    if items:
-        df = pd.DataFrame(items)[["user_id", "raw_game", "score", "metric", "game_date", "timestamp"]]
-        df["game_date"] = df["game_date"].apply(lambda x: x.split("_")[1])
-        df = df.rename(columns={"user_id": "Player", "raw_game": "Game", "score": "Score", "metric": "Metric", "game_date": "Date", "timestamp": "Timestamp"})
-        df = df.sort_values("Timestamp", ascending=False)
-        st.dataframe(df, use_container_width=True)
+    df_all = pd.DataFrame(items)
+    if not df_all.empty:
+        df_all["Date"] = df_all["game_date"].apply(lambda x: x.split("_")[1])
+        df_all = df_all.rename(columns={"user_id":"Player","raw_game":"Game","score":"Score","metric":"Metric","game_date":"Date","timestamp":"Timestamp"})
+        st.dataframe(df_all, use_container_width=True)
     else:
-        st.info("No scores match the filters.")
+        st.info("No scores yet.")
 
 with tab3:
     st.header("Game Progress")
-    col1, col2, col3 = st.columns([2, 2, 2])
+    col1, col2, col3 = st.columns([2,2,2])
     with col1:
         progress_game = st.selectbox("Select Game", GAMES, index=GAMES.index("Pinpoint"), key="progress_game")
     with col2:
         progress_players = st.multiselect("Select Players", PLAYERS, default=st.session_state.progress_players, key="progress_players")
     with col3:
-        date_filter = st.selectbox("Date Range", ["Last 7 days", "Last 30 days", "All Time"], index=0)
+        date_filter = st.selectbox("Date Range", ["Last 7 days", "Last 30 days", "All"], index=0)
+
+    all_items = fetch_all()
+    df_prog = pd.DataFrame(all_items)
+    if not df_prog.empty:
+        df_prog["Date"] = pd.to_datetime(df_prog["game_date"].apply(lambda x: x.split("_")[1]))
+        df_prog = df_prog[df_prog["raw_game"]==progress_game]
+        if date_filter=="Last 7 days":
+            df_prog = df_prog[df_prog["Date"] >= pd.Timestamp(datetime.utcnow().date()) - pd.Timedelta(days=7)]
+        elif date_filter=="Last 30 days":
+            df_prog = df_prog[df_prog["Date"] >= pd.Timestamp(datetime.utcnow().date()) - pd.Timedelta(days=30)]
+        df_prog = df_prog[df_prog["user_id"].isin(progress_players)]
+    else:
+        df_prog = pd.DataFrame(columns=["user_id","Date","Score"])
 
     if not progress_players:
-        st.info("Please select at least one player to show progress.")
+        st.info("Select at least one player")
     else:
-        fig, df, debug_info, config = plot_game(progress_game, progress_players, date_filter)
-        if fig is not None:
-            if st.session_state.debug_mode and not df.empty:
-                st.write(f"**Debug**: Found {len(df)} scores for {progress_game}")
-                st.write(f"**Debug Data**: {debug_info}")
-                st.dataframe(df, use_container_width=True)
-            st.plotly_chart(fig, use_container_width=True, config=config)
-        else:
-            st.info(f"No scores for {progress_game} in selected range. Use Debug tab to add test data.")
+        plot_chartjs(df_prog, progress_game, progress_players)
 
 with tab4:
-    st.header("Debug Mode & Test Data")
-    st.checkbox("Enable Debug Mode", value=st.session_state.debug_mode, key="debug_mode")
-
-    st.subheader("Generate Test Data")
+    st.header("Debug / Test Data")
     test_player = st.selectbox("Select Player for Test Data", PLAYERS, key="test_player")
-    if st.button("Add Test Data (Pinpoint, Past 4 Days)"):
-        success = generate_test_data(test_player, "Pinpoint")
-        if success:
-            st.success(f"Added 4 test Pinpoint scores for {test_player}!")
-        else:
-            st.error("Failed to add test data.")
-
-    st.subheader("DynamoDB Test")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        if st.button("Test Write"):
-            test_item = {
-                "user_id": "Mikuś",
-                "game_date": f"Pinpoint_{datetime.utcnow().date().isoformat()}",
-                "score": 3,
-                "metric": "guesses (lower better)",
-                "timestamp": datetime.utcnow().isoformat(),
-                "raw_game": "Pinpoint",
-            }
-            try:
-                table.put_item(Item=test_item)
-                st.success("Test write successful!")
-            except Exception as e:
-                st.error(f"Test write failed: {str(e)}")
-    with col2:
-        if st.button("Test Read"):
-            items = fetch_all()
-            if items:
-                st.success("Test read successful!")
-                st.json(items)
-            else:
-                st.info("No items yet.")
-    with col3:
-        if st.button("Test Delete"):
-            try:
-                key = {'user_id': 'Mikuś', 'game_date': f"Pinpoint_{datetime.utcnow().date().isoformat()}"}
-                table.delete_item(Key=key)
-                st.success("Test delete successful!")
-            except Exception as e:
-                st.error(f"Test delete failed: {str(e)}")
+    if st.button("Add Test Data"):
+        generate_test_data(test_player)
+        st.success(f"Added test data for {test_player}!")
+    st.checkbox("Debug Mode", value=st.session_state.debug_mode, key="debug_mode")
