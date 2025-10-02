@@ -96,5 +96,10 @@ def show():
         margin=dict(l=20, r=20, t=40, b=20)
     )
 
-    # Remove modebar
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    # Display the chart with theme support
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+        config={"displayModeBar": False},
+        theme=None  # This will make it use Streamlit's theme
+    )
