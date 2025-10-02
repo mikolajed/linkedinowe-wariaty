@@ -2,8 +2,7 @@ import streamlit as st
 from pages import submit_score, all_scores, progress, debug
 
 st.set_page_config(page_title="LinkedInowe Wariaty", page_icon="🎮")
-st.title("🎮 LinkedInowe Wariaty – Game Score Tracker")
-st.markdown("Track scores for Mikuś, Maciuś, and Patryk across Pinpoint, Queens, Crossclimb, and Tango!")
+st.title("🎮 LinkedInowe Wariaty")
 
 # Initialize session state
 if "progress_game" not in st.session_state: st.session_state.progress_game = "Pinpoint"
