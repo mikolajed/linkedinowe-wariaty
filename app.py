@@ -118,70 +118,72 @@ def plot_user(game: str, user: str):
     st.write(f"**Debug**: Generating Chart.js for {len(dates)} points: {dates}, {scores}")
     
     # Chart.js HTML
-    chart_id = f"chart_{user}_{game}_{random.randint(1000, 9999)}".replace(" ", "_")  # Unique ID
+    chart_id = f"chart_{user}_{game}_{random.randint(1000, 9999)}".replace(" ", "_")
     html = f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.3/chart.umd.min.js"></script>
     </head>
     <body>
         <canvas id="{chart_id}" style="max-height: 400px; width: 100%;"></canvas>
         <script>
-            try {{
-                const ctx = document.getElementById('{chart_id}').getContext('2d');
-                new Chart(ctx, {{
-                    type: 'line',
-                    data: {{
-                        labels: {dates},
-                        datasets: [{{
-                            label: '',
-                            data: {scores},
-                            borderColor: '#00ff88',
-                            borderWidth: 4,
-                            pointBackgroundColor: '#00ff88',
-                            pointRadius: 6,
-                            pointHoverRadius: 8,
-                            fill: false,
-                            tension: 0.4
-                        }}]
-                    }},
-                    options: {{
-                        animation: {{
-                            duration: 2000,
-                            easing: 'easeInOutQuad',
-                            x: {{ duration: 2000, from: 0 }}
+            window.onload = function() {{
+                try {{
+                    const ctx = document.getElementById('{chart_id}').getContext('2d');
+                    new Chart(ctx, {{
+                        type: 'line',
+                        data: {{
+                            labels: {dates},
+                            datasets: [{{
+                                label: '',
+                                data: {scores},
+                                borderColor: '#00ff88',
+                                borderWidth: 4,
+                                pointBackgroundColor: '#00ff88',
+                                pointRadius: 6,
+                                pointHoverRadius: 8,
+                                fill: false,
+                                tension: 0.4
+                            }}]
                         }},
-                        plugins: {{
-                            legend: {{ display: false }},
-                            title: {{
-                                display: true,
-                                text: "{user}'s {game} Progress",
-                                color: '#ffffff',
-                                font: {{ size: 20, family: 'Arial' }}
-                            }}
-                        }},
-                        scales: {{
-                            x: {{
-                                display: true,
-                                ticks: {{ color: '#cccccc', font: {{ size: 12 }} }},
-                                grid: {{ display: false }}
+                        options: {{
+                            animation: {{
+                                duration: 2000,
+                                easing: 'easeInOutQuad',
+                                x: {{ duration: 2000, from: 0 }}
                             }},
-                            y: {{
-                                display: true,
-                                ticks: {{ color: '#cccccc', font: {{ size: 12 }} }},
-                                grid: {{ display: false }},
-                                beginAtZero: false
-                            }}
-                        }},
-                        layout: {{ padding: 20 }},
-                        maintainAspectRatio: false
-                    }}
-                }});
-            }} catch (error) {{
-                console.error('Chart.js error:', error);
-                document.getElementById('{chart_id}').outerHTML = '<p style="color: red;">Failed to load graph. Check browser console for errors.</p>';
-            }}
+                            plugins: {{
+                                legend: {{ display: false }},
+                                title: {{
+                                    display: true,
+                                    text: "{user}'s {game} Progress",
+                                    color: '#ffffff',
+                                    font: {{ size: 20, family: 'Arial' }}
+                                }}
+                            }},
+                            scales: {{
+                                x: {{
+                                    display: true,
+                                    ticks: {{ color: '#cccccc', font: {{ size: 12 }} }},
+                                    grid: {{ display: false }}
+                                }},
+                                y: {{
+                                    display: true,
+                                    ticks: {{ color: '#cccccc', font: {{ size: 12 }} }},
+                                    grid: {{ display: false }},
+                                    beginAtZero: false
+                                }}
+                            }},
+                            layout: {{ padding: 20 }},
+                            maintainAspectRatio: false
+                        }}
+                    }});
+                }} catch (error) {{
+                    console.error('Chart.js error:', error);
+                    document.getElementById('{chart_id}').outerHTML = '<p style="color: red;">Failed to load graph. Check browser console for errors.</p>';
+                }}
+            }};
         </script>
     </body>
     </html>
@@ -297,6 +299,9 @@ with tab3:
         if html:
             st.write(f"**Debug**: Found {len(df)} scores for {progress_player} in {progress_game}")
             st.dataframe(df[["Date", "Score"]], use_container_width=True)
+            # Debug: Show raw HTML
+            with st.expander("Debug: Raw Chart.js HTML"):
+                st.code(html)
             components.html(html, height=450)
         else:
             st.info(f"No scores for {progress_player} in {progress_game}. Use 'Add Test Data' in Submit Score tab to add scores.")
