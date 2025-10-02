@@ -104,13 +104,17 @@ def plot_chartjs(df: pd.DataFrame, game: str, players: list):
         st.info(f"No data for {game} for selected players.")
         return
 
+    # Ensure Date column exists
     if "Date" not in df.columns:
         df["Date"] = pd.to_datetime(df["game_date"].apply(lambda x: x.split("_")[1]))
 
     datasets = []
     for player in players:
         player_df = df[df["user_id"] == player].sort_values("Date")
-        data_points = [{"x": d.strftime("%Y-%m-%d"), "y": int(s)} for d, s in zip(player_df["Date"], player_df["score"])]
+        # Use correct score column
+        score_col = "score" if "score" in player_df.columns else "Score"
+        # Chart.js expects ISO format with full timestamp
+        data_points = [{"x": d.strftime("%Y-%m-%dT12:00:00"), "y": int(s)} for d, s in zip(player_df["Date"], player_df[score_col])]
         datasets.append({
             "label": player,
             "data": data_points,
@@ -133,7 +137,7 @@ def plot_chartjs(df: pd.DataFrame, game: str, players: list):
                 "x": {"type": "time", "time": {"unit": "day"}, "title": {"display": True, "text": "Date"}},
                 "y": {"title": {"display": True, "text": "Score"}}
             },
-            "animation": False,  # DISABLE animation
+            "animation": False,
             "elements": {"line": {"borderWidth": 4}},
             "hover": {"mode": "nearest", "intersect": True}
         }
