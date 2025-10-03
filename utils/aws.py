@@ -1,13 +1,13 @@
 import boto3
 import streamlit as st
 
-def get_ddb_table(AWS_CFG, table_name="game-scores"):
+def get_ddb_table(AWS_CFG, table_name="game_scores"):
     """
     Returns a DynamoDB Table object or a mock in-memory table if credentials are missing.
     
     Parameters:
     - AWS_CFG: dict with AWS credentials from st.secrets
-    - table_name: str, either "game-scores" or "raw_game_posts"
+    - table_name: str, either "game_scores" or "raw_game_posts"
     """
     if AWS_CFG.get("access_key_id") and AWS_CFG.get("secret_access_key"):
         session_kwargs = {

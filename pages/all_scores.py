@@ -5,7 +5,7 @@ from constants import PLAYERS, GAMES
 
 def show():
     AWS_CFG = st.secrets.get("aws", {})
-    table = aws.get_ddb_table(AWS_CFG, table_name="game-scores")  # Fixed: hyphen
+    table = aws.get_ddb_table(AWS_CFG, table_name="game_scores")  
     st.header("All Scores")
 
     items = data.fetch_all(table)

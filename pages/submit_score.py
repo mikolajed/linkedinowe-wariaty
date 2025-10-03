@@ -6,8 +6,8 @@ from datetime import datetime
 def show():
     AWS_CFG = st.secrets.get("aws", {})
 
-    scores_table = aws.get_ddb_table(AWS_CFG, "game-scores")  # Fixed: hyphen
-    raw_table = aws.get_ddb_table(AWS_CFG, "raw_game_posts")  # Assuming this table exists or is mock
+    scores_table = aws.get_ddb_table(AWS_CFG, "game_scores") 
+    raw_table = aws.get_ddb_table(AWS_CFG, "raw_game_posts") 
 
     st.header("Submit a New Score")
     user_id = st.selectbox("Select Player", PLAYERS, key="submit_player")
