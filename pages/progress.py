@@ -8,15 +8,16 @@ from utils import data
 def show():
     st.header("Game Progress")
 
+    # Reorder columns: Game | Time Range | Players
     col1, col2, col3 = st.columns([2, 2, 2])
     progress_game = col1.selectbox("Select Game", GAMES, index=0, key="progress_game")
-    progress_players = col2.multiselect("Select Players", PLAYERS, default=PLAYERS, key="progress_players")
-    time_filter = col3.selectbox(
+    time_filter = col2.selectbox(
         "Time Range",
         ["All", "Past Year", "Past Month", "Past Week"],
         index=0,
         key="progress_time_filter"
     )
+    progress_players = col3.multiselect("Select Players", PLAYERS, default=PLAYERS, key="progress_players")
 
     # fetch from DynamoDB
     items = data.fetch_all("game_scores")
@@ -64,14 +65,13 @@ def show():
 
         unit_label = units_list[idx] if idx < len(units_list) else ""
 
-        # Only show day in x-axis
+        # Keep x as datetime for monotonic axis
         df_plot = df.copy()
         df_plot["score_y"] = y_values
-        df_plot["game_date_str"] = df_plot["game_date"].dt.strftime("%d-%m-%Y")
 
         fig = px.line(
             df_plot,
-            x="game_date_str",
+            x="game_date",
             y="score_y",
             color="user_id",
             markers=True,
@@ -80,11 +80,18 @@ def show():
             template="plotly_dark"
         )
 
+        # Format x-axis to show only day
+        fig.update_xaxes(
+            tickformat="%d-%m-%Y",
+            dtick="D1",  # one day per tick
+            tickangle=45
+        )
+
         fig.update_traces(
             line=dict(width=3),
             marker=dict(size=8),
             hovertemplate=(
-                "Date: %{x}<br>"
+                "Date: %{x|%d-%m-%Y}<br>"
                 f"Score: %{{y}}<br>"
                 f"Player: %{{color}}<extra></extra>"
             )

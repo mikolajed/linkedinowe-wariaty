@@ -6,7 +6,7 @@ from constants import PLAYERS, GAMES
 def show():
     st.header("All Scores")
 
-    # Fetch all scores from DynamoDB (game_scores table)
+    # Always fetch fresh data from DynamoDB
     items = data.fetch_all("game_scores")
     if not items:
         st.info("No scores yet.")
@@ -53,4 +53,5 @@ def show():
 
     # Sort nicely
     df_all = df_all.sort_values(by=["Game", "Game Number", "Player"])
+
     st.dataframe(df_all, use_container_width=True)

@@ -6,8 +6,9 @@ from constants import PLAYERS
 def show():
     st.header("Posts")
 
-    # Fetch all posts directly from DynamoDB (raw_game_posts table)
+    # Force refetch by calling fetch_all() every time
     items = data.fetch_all("raw_game_posts")
+
     if not items:
         st.info("No posts yet.")
         return
@@ -29,5 +30,9 @@ def show():
         "raw_post": "Post",
         "timestamp": "Submitted At"
     })
+
+    # Add a refresh button to force rerun manually (optional)
+    if st.button("Refresh Posts"):
+        st.experimental_rerun()
 
     st.dataframe(df_display, use_container_width=True)
