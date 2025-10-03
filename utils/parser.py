@@ -3,84 +3,72 @@ import re
 def parse_post(text: str):
     text = text.strip()
 
+    def parse_time(val):
+        if ":" in val:
+            parts = [int(x) for x in val.split(":")]
+            return sum(p * 60**i for i, p in enumerate(reversed(parts)))
+        return int(val)
+
     # --- Mini Sudoku ---
-    # Example: "Mini Sudoku #52 | 6:29"
     m = re.search(r"Mini Sudoku #(\d+)\s*\|\s*([\d:]+)", text, re.IGNORECASE)
     if m:
-        val = m.group(2)
-        parts = [int(x) for x in val.split(":")]
-        score = sum(p * 60**i for i, p in enumerate(reversed(parts)))
-        return {"raw_game": "Mini Sudoku", "score": score, "metric": "seconds", "game_number": int(m.group(1))}
+        return {
+            "game_name": "Mini Sudoku",
+            "game_number": int(m.group(1)),
+            "scores": [parse_time(m.group(2))]
+        }
 
     # --- Pinpoint ---
-    # Example: "Pinpoint #520 | 1 guess" OR "Pinpoint #520 | 3 próby"
     m = re.search(r"Pinpoint #(\d+)\s*\|\s*(\d+)", text, re.IGNORECASE)
     if m:
-        res = {
-            "raw_game": "Pinpoint",
-            "score": int(m.group(2)),
-            "metric": "guesses",
-            "game_number": int(m.group(1))
-        }
-        # Look for percentage anywhere (e.g. "85%")
+        scores = [int(m.group(2))]
         acc = re.search(r"(\d+)%", text)
         if acc:
-            res["secondary_metric"] = int(acc.group(1))
-        return res
+            scores.append(int(acc.group(1)))
+        return {
+            "game_name": "Pinpoint",
+            "game_number": int(m.group(1)),
+            "scores": scores
+        }
 
     # --- Queens ---
-    # Example: "Queens #520 | 1:57"
     m = re.search(r"Queens #(\d+)\s*\|\s*([\d:]+)", text, re.IGNORECASE)
     if m:
-        val = m.group(2)
-        parts = [int(x) for x in val.split(":")]
-        score = sum(p * 60**i for i, p in enumerate(reversed(parts)))
-        return {"raw_game": "Queens", "score": score, "metric": "seconds", "game_number": int(m.group(1))}
+        return {
+            "game_name": "Queens",
+            "game_number": int(m.group(1)),
+            "scores": [parse_time(m.group(2))]
+        }
 
     # --- Crossclimb ---
-    # Example: "Crossclimb #123 | 8:12" OR "Crossclimb #123 | 12"
     m = re.search(r"Crossclimb #(\d+)\s*\|\s*([\d:]+|\d+)", text, re.IGNORECASE)
     if m:
-        val = m.group(2)
-        if ":" in val:
-            parts = [int(x) for x in val.split(":")]
-            score = sum(p * 60**i for i, p in enumerate(reversed(parts)))
-        else:
-            score = int(val)
-        return {"raw_game": "Crossclimb", "score": score, "metric": "seconds/clues", "game_number": int(m.group(1))}
+        return {
+            "game_name": "Crossclimb",
+            "game_number": int(m.group(1)),
+            "scores": [parse_time(m.group(2))]
+        }
 
     # --- Tango ---
-    # Example: "Tango #360 | 2:17" OR "Tango #360 | 35"
     m = re.search(r"Tango #(\d+)\s*\|\s*([\d:]+|\d+)", text, re.IGNORECASE)
     if m:
-        val = m.group(2)
-        if ":" in val:
-            parts = [int(x) for x in val.split(":")]
-            score = sum(p * 60**i for i, p in enumerate(reversed(parts)))
-        else:
-            score = int(val)
-        return {"raw_game": "Tango", "score": score, "metric": "points", "game_number": int(m.group(1))}
+        return {
+            "game_name": "Tango",
+            "game_number": int(m.group(1)),
+            "scores": [parse_time(m.group(2))]
+        }
 
     # --- Zip ---
-    # Example: "Zip #199 | 0:36 🏁 With 18 backtracks" OR "Zip #199 | 45 (3 próby)"
     m = re.search(r"Zip #(\d+)\s*\|\s*([\d:]+|\d+)", text, re.IGNORECASE)
     if m:
-        val = m.group(2)
-        if ":" in val:
-            parts = [int(x) for x in val.split(":")]
-            score = sum(p * 60**i for i, p in enumerate(reversed(parts)))
-        else:
-            score = int(val)
-        res = {
-            "raw_game": "Zip",
-            "score": score,
-            "metric": "seconds/points",
-            "game_number": int(m.group(1))
-        }
-        # Secondary: look for trailing number before "backtrack" or in parentheses
+        scores = [parse_time(m.group(2))]
         back = re.search(r"(\d+)\s*(?:backtracks?|próby|\))", text, re.IGNORECASE)
         if back:
-            res["secondary_metric"] = int(back.group(1))
-        return res
+            scores.append(int(back.group(1)))
+        return {
+            "game_name": "Zip",
+            "game_number": int(m.group(1)),
+            "scores": scores
+        }
 
     raise ValueError("Could not detect a supported game pattern.")

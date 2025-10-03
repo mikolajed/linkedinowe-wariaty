@@ -1,4 +1,9 @@
-PLAYERS = ["Mikuś", "Maciuś", "Patryk", "Pysiek"]
+PLAYERS = [
+    "Mikuś",
+    "Maciuś",
+    "Patryk",
+    "Pysiek"
+]
 
 GAMES = [
     "Mini Sudoku",
@@ -8,6 +13,15 @@ GAMES = [
     "Tango",
     "Zip"
 ]
+
+SCORE_UNITS = {
+    "Mini Sudoku": ["seconds", "mistakes"],
+    "Pinpoint": ["guesses", "accuracy_percent"],
+    "Queens": ["seconds", "mistakes"],
+    "Crossclimb": ["seconds"],      
+    "Tango": ["points", "bonus_points"],
+    "Zip": ["seconds", "backtracks"]
+}
 
 COLORS = {
     "Mikuś": "#00ff88",  # green

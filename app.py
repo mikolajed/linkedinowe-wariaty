@@ -1,23 +1,25 @@
 import streamlit as st
-from pages import submit_score, all_scores, progress, all_posts, debug
+from pages import submit, scores, progress, posts, developer
 from constants import GAMES
 
 st.set_page_config(page_title="LinkedInowe Wariaty", page_icon="🎮")
 st.title("🎮 LinkedInowe Wariaty")
 
-if "progress_game" not in st.session_state:
-    st.session_state.progress_game = GAMES[0]
-if "progress_players" not in st.session_state:
-    st.session_state.progress_players = None
-if "debug_mode" not in st.session_state:
-    st.session_state.debug_mode = False
+# Session state
+if "chosen_game" not in st.session_state:
+    st.session_state.chosen_game = GAMES[0]
+if "chosen_player" not in st.session_state:
+    st.session_state.chosen_player = None
+if "allow_pysiek" not in st.session_state:
+    st.session_state.allow_pysiek = True
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📝 Submit Score", "📋 All Scores", "🗒️ All Posts", "📈 Progress", "⚙️ Debug"
+# Tabs
+tab_submit, tab_scores, tab_posts, tab_progress, tab_developer = st.tabs([
+    "📝 Submit", "📋 Scores", "🗒️ Posts", "📈 Progress", "🛠️ Developer"
 ])
 
-with tab1: submit_score.show()
-with tab2: all_scores.show()
-with tab3: all_posts.show()
-with tab4: progress.show()
-with tab5: debug.show()
+with tab_submit: submit.show()
+with tab_scores: scores.show()
+with tab_posts: posts.show()
+with tab_progress: progress.show()
+with tab_developer: developer.show()
