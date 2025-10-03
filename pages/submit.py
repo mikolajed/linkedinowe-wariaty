@@ -94,7 +94,7 @@ def show():
             units = [u.strip() for u in units_input.split(",") if u.strip()]
 
     # Submit button
-    if st.button("Submit Post"):
+    if st.button("Submit"):
         if not show_advanced or not advanced_modify:
             data.save_post(player, raw_post)
             st.success(f"Post submitted for {player} ({parsed_game or 'Unknown'}).")
