@@ -1,7 +1,7 @@
 import boto3
 import streamlit as st
 
-def get_ddb_table(AWS_CFG, table_name="game_scores"):
+def get_ddb_table(AWS_CFG, table_name):
     """
     Returns a DynamoDB Table object or a mock in-memory table if credentials are missing.
     
@@ -35,6 +35,11 @@ def get_ddb_table(AWS_CFG, table_name="game_scores"):
                 self.data = []
 
             def put_item(self, Item):
+                # Remove existing item with same primary key
+                self.data = [
+                    i for i in self.data
+                    if not (i.get('user_id') == Item.get('user_id') and i.get('timestamp') == Item.get('timestamp'))
+                ]
                 self.data.append(Item)
 
             def scan(self):
