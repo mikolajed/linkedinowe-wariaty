@@ -15,11 +15,11 @@ GAMES = [
 ]
 
 SCORE_UNITS = {
-    "Mini Sudoku": ["seconds", "mistakes"],
+    "Mini Sudoku": ["seconds"],
     "Pinpoint": ["guesses", "%"],
-    "Queens": ["seconds", "mistakes"],
+    "Queens": ["seconds"],
     "Crossclimb": ["seconds"],      
-    "Tango": ["points", "bonus_points"],
+    "Tango": ["points"],
     "Zip": ["seconds", "backtracks"]
 }
 
