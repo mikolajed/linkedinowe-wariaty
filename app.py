@@ -17,7 +17,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 ])
 
 with tab1: submit_score.show()
-#with tab2: all_scores.show()
-#with tab3: all_posts.show()
-#with tab4: progress.show()
+with tab2: all_scores.show()
+with tab3: all_posts.show()
+with tab4: progress.show()
 with tab5: debug.show()
