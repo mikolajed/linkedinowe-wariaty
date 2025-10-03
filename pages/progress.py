@@ -6,7 +6,7 @@ from utils import data, aws
 
 def show():
     AWS_CFG = st.secrets.get("aws", {})
-    table = aws.get_ddb_table(AWS_CFG, table_name="game_scores")
+    table = aws.get_ddb_table(AWS_CFG, table_name="game-scores")  # Fixed: hyphen
     st.header("Game Progress")
 
     col1, col2, col3 = st.columns([2, 2, 1])
@@ -26,7 +26,7 @@ def show():
         st.info(f"No data for {progress_game} for selected players.")
         return
 
-    # Filter to numeric metrics only
+    # Fixed: Filter to numeric metrics only
     numeric_metrics = []
     if "score" in df.columns:
         numeric_metrics.append("score")

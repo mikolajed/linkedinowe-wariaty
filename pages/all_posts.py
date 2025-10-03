@@ -4,7 +4,7 @@ from utils import aws, data
 
 def show():
     AWS_CFG = st.secrets.get("aws", {})
-    table = aws.get_ddb_table(AWS_CFG, table_name="raw_game_posts")
+    table = aws.get_ddb_table(AWS_CFG, table_name="raw_game_posts")  # Assuming this table exists
     st.header("All Raw Posts")
 
     items = data.fetch_all(table)

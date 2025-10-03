@@ -4,7 +4,7 @@ from constants import PLAYERS, GAMES
 
 def show():
     AWS_CFG = st.secrets.get("aws", {})
-    table = aws.get_ddb_table(AWS_CFG)
+    table = aws.get_ddb_table(AWS_CFG, table_name="game-scores")  # Fixed: hyphen
     st.header("⚙️ Debug / Test Data")
 
     debug_mode = st.checkbox("Enable Debug Mode", value=st.session_state.get("debug_mode", False), key="debug_mode")
