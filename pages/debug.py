@@ -22,7 +22,7 @@ def show():
         if not include_pysiek and "Pysiek" in players_to_use:
             players_to_use.remove("Pysiek")
 
-        data.generate_test_data(
+        success = data.generate_test_data(
             table,
             test_player,
             game=test_game,
@@ -30,6 +30,9 @@ def show():
             end_day=end_entry,
             extra_players=players_to_use
         )
-        st.success(f"Added entries {start_entry} → {end_entry} for {test_player} for game: {test_game}")
-        if debug_mode:
-            st.info(f"Debug Info: Players included = {', '.join(players_to_use)}")
+        if success:
+            st.success(f"Added entries {start_entry} → {end_entry} for {test_player} for game: {test_game}")
+            if debug_mode:
+                st.info(f"Debug Info: Players included = {', '.join(players_to_use)}")
+        else:
+            st.error("Failed to add test data. Check DynamoDB permissions.")

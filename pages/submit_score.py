@@ -13,6 +13,8 @@ def show():
     user_id = st.selectbox("Select Player", PLAYERS, key="submit_player")
     post = st.text_area("Paste the LinkedIn share text here", height=150)
 
+    debug_mode = st.checkbox("Debug Mode", value=False, key="debug_mode")
+
     if st.button("Save Score", key="save_score"):
         if not post.strip():
             st.error("Please paste a valid game post!")
@@ -26,7 +28,7 @@ def show():
             parsed = parser.parse_post(post)
             saved = data.save_score(scores_table, user_id, parsed)
             st.success(f"Saved **{parsed['raw_game']}** – score {parsed['score']} {parsed['metric']}")
-            if st.session_state.get("debug_mode", False):
+            if debug_mode:
                 st.subheader("Debug: Raw Saved Item")
                 st.json(saved)
         except ValueError as e:
