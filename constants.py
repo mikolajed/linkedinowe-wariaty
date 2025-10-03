@@ -16,7 +16,7 @@ GAMES = [
 
 SCORE_UNITS = {
     "Mini Sudoku": ["seconds", "mistakes"],
-    "Pinpoint": ["guesses", "accuracy_percent"],
+    "Pinpoint": ["guesses", "%"],
     "Queens": ["seconds", "mistakes"],
     "Crossclimb": ["seconds"],      
     "Tango": ["points", "bonus_points"],

@@ -63,39 +63,44 @@ def show():
         if y_values.isnull().all():
             continue
 
-        unit_label = units_list[idx] if idx < len(units_list) else ""
+        unit_label = units_list[idx] if idx < len(units_list) else "Score"
 
         # Keep x as datetime for monotonic axis
         df_plot = df.copy()
         df_plot["score_y"] = y_values
+        df_plot = df_plot.rename(columns={"user_id": "Player"})
 
         fig = px.line(
             df_plot,
             x="game_date",
             y="score_y",
-            color="user_id",
+            color="Player",
             markers=True,
             line_shape="spline",
             color_discrete_map=COLORS,
-            template="plotly_dark"
+            template="plotly_dark",
+            labels={"game_date": "Date", "score_y": unit_label, "Player": "Player"},
+            title=f"{unit_label} vs Date"  # <-- clean title
         )
 
-        # Format x-axis to show only day
-        fig.update_xaxes(
-            tickformat="%d-%m-%Y",
-            dtick="D1",  # one day per tick
-            tickangle=45
+        # Clean layout
+        fig.update_layout(
+            margin=dict(l=40, r=40, t=40, b=40),
+            legend_title="Player"
         )
 
+        # Format x-axis
+        fig.update_xaxes(tickformat="%d-%m-%Y", tickangle=45)
+
+        # Style traces
         fig.update_traces(
             line=dict(width=3),
             marker=dict(size=8),
             hovertemplate=(
                 "Date: %{x|%d-%m-%Y}<br>"
-                f"Score: %{{y}}<br>"
-                f"Player: %{{color}}<extra></extra>"
+                f"{unit_label}: %{{y}}<br>"
+                f"Player: %{{legendgroup}}<extra></extra>"
             )
         )
 
-        st.subheader(f"Score #{idx+1} ({unit_label})")
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
