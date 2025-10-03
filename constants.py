@@ -2,7 +2,7 @@ PLAYERS = [
     "Mikuś",
     "Maciuś",
     "Patryk",
-    "Pysiek"
+    # "Pysiek"
 ]
 
 GAMES = [
@@ -27,5 +27,5 @@ COLORS = {
     "Mikuś": "#00ff88",  # green
     "Maciuś": "#0077ff", # blue
     "Patryk": "#ff0000", # red
-    "Pysiek": "#cc00ff"  # purple
+    # "Pysiek": "#cc00ff"  # purple
 }
